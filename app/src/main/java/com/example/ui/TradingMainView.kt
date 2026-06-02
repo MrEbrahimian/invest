@@ -347,6 +347,7 @@ fun VipDashboardScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val useLiveCrawler by viewModel.useLiveCrawler.collectAsState()
     val scrapingErrorMessage by viewModel.scrapingErrorMessage.collectAsState()
+    val screeningSeverity by viewModel.screeningSeverity.collectAsState()
 
     // Collect AI & Macro Economic settings state
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
@@ -954,6 +955,121 @@ fun VipDashboardScreen(
                             modifier = Modifier.weight(1f),
                             onClick = { showVipOnly = false }
                         )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Screening Severity Filter Selector Component
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(DarkSurface, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                            .border(1.dp, BorderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = null,
+                                    tint = GoldPrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "شدت و معیار فیلتر چند سطحی:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PureWhite
+                                )
+                            }
+                            
+                            val infoLabel = when (screeningSeverity) {
+                                "LOW" -> "آسان‌گیر: نقدینگی پایه + مجمع سودده"
+                                "MEDIUM" -> "متوازن: نقدینگی متوسط + عایق سود بانکی"
+                                else -> "سخت‌گیرانه: عایق تورم ملى + نقدینگی بالا + پایداری سود"
+                            }
+                            Text(
+                                text = infoLabel,
+                                fontSize = 9.sp,
+                                color = if (screeningSeverity == "HIGH") StockGreen else if (screeningSeverity == "MEDIUM") GoldPrimary else StockRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // LOW FILTER BUTTON
+                            Button(
+                                onClick = { viewModel.setScreeningSeverity("LOW") },
+                                modifier = Modifier.weight(1f).height(34.dp).testTag("filter_low_button"),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (screeningSeverity == "LOW") StockRed.copy(alpha = 0.15f) else DarkSurfaceVariant,
+                                    contentColor = if (screeningSeverity == "LOW") StockRed else SlateTextSecondary
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (screeningSeverity == "LOW") StockRed.copy(alpha = 0.8f) else BorderColor
+                                )
+                            ) {
+                                Text("پایین (ریسک بالا)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // MEDIUM FILTER BUTTON
+                            Button(
+                                onClick = { viewModel.setScreeningSeverity("MEDIUM") },
+                                modifier = Modifier.weight(1.1f).height(34.dp).testTag("filter_medium_button"),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (screeningSeverity == "MEDIUM") GoldPrimary.copy(alpha = 0.15f) else DarkSurfaceVariant,
+                                    contentColor = if (screeningSeverity == "MEDIUM") GoldPrimary else SlateTextSecondary
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (screeningSeverity == "MEDIUM") GoldPrimary.copy(alpha = 0.8f) else BorderColor
+                                )
+                            ) {
+                                Text("متوسط (متوازن)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            // HIGH FILTER BUTTON
+                            Button(
+                                onClick = { viewModel.setScreeningSeverity("HIGH") },
+                                modifier = Modifier.weight(1.2f).height(34.dp).testTag("filter_high_button"),
+                                contentPadding = PaddingValues(0.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (screeningSeverity == "HIGH") StockGreen.copy(alpha = 0.15f) else DarkSurfaceVariant,
+                                    contentColor = if (screeningSeverity == "HIGH") StockGreen else SlateTextSecondary
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (screeningSeverity == "HIGH") StockGreen.copy(alpha = 0.8f) else BorderColor
+                                )
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoAwesome,
+                                        contentDescription = null,
+                                        tint = if (screeningSeverity == "HIGH") StockGreen else SlateTextSecondary,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text("قوی (VIP عالی)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

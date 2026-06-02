@@ -93,6 +93,10 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _notificationLog = MutableStateFlow<List<String>>(emptyList())
     val notificationLog: StateFlow<List<String>> = _notificationLog.asStateFlow()
 
+    // Multi-level user risk preference screening state (LOW, MEDIUM, HIGH)
+    private val _screeningSeverity = MutableStateFlow(sharedPrefs.getString("screening_severity", "HIGH") ?: "HIGH")
+    val screeningSeverity: StateFlow<String> = _screeningSeverity.asStateFlow()
+
     init {
         // Load initial offline activation status
         val savedMobile = sharedPrefs.getString("user_mobile", "") ?: ""
@@ -446,6 +450,15 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
+     * Changes risk preference filter parameters (LOW/MEDIUM/HIGH)
+     */
+    fun setScreeningSeverity(level: String) {
+        _screeningSeverity.value = level
+        sharedPrefs.edit().putString("screening_severity", level).apply()
+        fetchMarketData()
+    }
+
+    /**
      * Refreshes Iran Stock Market signals and runs custom screening VIP algorithm
      */
     fun fetchMarketData() {
@@ -458,43 +471,74 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                 
                 // Map of custom database overrides
                 val overrides = _customDpsList.value.associateBy { it.symbol }
+                val currentSeverity = _screeningSeverity.value
+                val minInfl = _inflationRate.value
+                val minBank = _bankIncomeRate.value
                 
                 val mergedStocks = stocks.map { stock ->
                     val override = overrides[stock.symbol]
-                    if (override != null) {
-                        val mergedDps = override.dpsYr5
-                        val mergedDpsYield = if (stock.price > 0) (mergedDps.toFloat() / stock.price) * 100f else 0f
-                        val mergedTotalPotential = mergedDpsYield + override.growthPotential
-                        
-                        val mergedLevel = when {
-                            mergedDpsYield >= 22.0f -> "سطح ۱ — سود نقدی خالص عالی (بیشتر از سود بانکی)"
-                            mergedTotalPotential >= 22.0f -> "سطح ۲ — پتانسیل بازدهی کل عالی (رشد + سود مجمع)"
-                            else -> "سطح ۳ — بازدهی معمولی"
-                        }
-                        
-                        // Recalculate VIP status using updated metrics
-                        val isVip = stock.volume > 1000000 &&
-                                    stock.value > 10000000000L &&
-                                    stock.eps > 0 &&
-                                    stock.pe >= 2f && stock.pe <= 10f
-
-                        stock.copy(
-                            dps = mergedDps,
-                            dpsYield = mergedDpsYield,
-                            growthPotential = override.growthPotential,
-                            dpsLevel = mergedLevel,
-                            keyDateMilestones = override.keyMonths,
-                            historicalDps = override.historyList,
-                            isVipSignal = isVip,
-                            reason = if (isVip) {
-                                "منطبق با فیلتر بورس ایران (شخصی‌سازی شده): حجم > ۱ میلیون، ارزش معاملات > ۱۰ میلیارد ریال، P/E بین ۲ و ۱۰ با سود نقدی بازنگری‌شده مجمع"
-                            } else {
-                                "سهم شخصی‌سازی شده فاقد معیارهای فیلتر حجم/ارزش/PE"
-                            }
-                        )
-                    } else {
-                        stock
+                    
+                    // Basic values from override or original
+                    val finalDps = override?.dpsYr5 ?: stock.dps
+                    val finalPrice = stock.price
+                    val finalDpsYield = if (finalPrice > 0) (finalDps.toFloat() / finalPrice) * 100f else 0f
+                    val finalGrowth = override?.growthPotential ?: stock.growthPotential
+                    val finalTotalReturn = finalDpsYield + finalGrowth
+                    val finalHistory = override?.historyList ?: stock.historicalDps
+                    val finalKeyDates = override?.keyMonths ?: stock.keyDateMilestones
+                    
+                    val calculatedLevel = when {
+                        finalDpsYield >= minBank -> "سطح ۱ — سود نقدی خالص عالی (بیشتر از سود بانکی)"
+                        finalTotalReturn >= minInfl -> "سطح ۲ — عایق تورم عالی (رشد + سود مجمع)"
+                        else -> "سطح ۳ — بازدهی معمولی"
                     }
+                    
+                    // Smart conditions for VIP classification matching User Preferences:
+                    val matchesLiquidity = when (currentSeverity) {
+                        "LOW" -> stock.volume > 100000 && stock.value > 1000000000L // Minimum TSETMC volume & value (100 Mil Tomans)
+                        "MEDIUM" -> stock.volume > 500000 && stock.value > 5000000000L // Balanced liquidity (500 Mil Tomans)
+                        else -> stock.volume > 1000000 && stock.value > 10000000000L // HIGH / Strong liquidity (1 Billion Tomans) for free entry & exit
+                    }
+                    
+                    val matchesInflationProtection = when (currentSeverity) {
+                        "LOW" -> true // Low strictness
+                        "MEDIUM" -> finalTotalReturn >= minBank // Beat bond/deposit yields
+                        else -> finalTotalReturn >= minInfl // HIGH: Must beat point-to-point CPI inflation rate (38.8%+)
+                    }
+                    
+                    val matchesStability = when (currentSeverity) {
+                        "LOW" -> true
+                        "MEDIUM" -> finalDps > 0
+                        else -> finalDps > 0 && finalHistory.count { it > 0 } >= 3 // HIGH: Stable payout history on Kodal (at least 3 years active payments in last 5 years)
+                    }
+                    
+                    val passesEpsCheck = when (currentSeverity) {
+                        "LOW" -> true
+                        else -> stock.eps > 0
+                    }
+                    
+                    val isVip = matchesLiquidity && matchesInflationProtection && matchesStability && passesEpsCheck
+
+                    val calculatedReason = when (currentSeverity) {
+                        "LOW" -> "فیلتر آسان‌گیر (پایین): حجم روزانه > ۱۰۰ هزار سهم، ارزش معاملات > ۱ میلیارد ریال و مجمع نقدینگی فعال."
+                        "MEDIUM" -> "فیلتر متوازن (متوسط): حجم > ۵۰۰ هزار سهم، سود معیار درآمد ثابت (${String.format(java.util.Locale.US, "%.1f", minBank)}٪)، سوددهی EPS مثبت و ارزش > ۵ میلیارد ریال."
+                        else -> "فیلتر پیشرفته VIP (قوی): حجم > ۱ میلیون (نقدینگی ورود/خروج بسیار بالا)، عایق تورم نقطه به نقطه کشور (${String.format(java.util.Locale.US, "%.1f", minInfl)}٪)، ارزش > ۱۰ میلیارد ریال، پرداخت پایدار DPS در سال‌های گذشته."
+                    }
+
+                    stock.copy(
+                        dps = finalDps,
+                        dpsYield = finalDpsYield,
+                        growthPotential = finalGrowth,
+                        dpsLevel = calculatedLevel,
+                        keyDateMilestones = finalKeyDates,
+                        historicalDps = finalHistory,
+                        isVipSignal = isVip,
+                        reason = if (isVip) {
+                            "$calculatedReason [تایید صلاحیت شد]"
+                        } else {
+                            "عدم ارزندگی در فیلتر انتخابی ($calculatedReason)"
+                        }
+                    )
                 }
 
                 _allStocks.value = mergedStocks
