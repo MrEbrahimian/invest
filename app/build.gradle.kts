@@ -120,3 +120,9 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register<Exec>("runPythonScaffold") {
+    workingDir = rootDir
+    commandLine("python3", "${rootDir}/scaffold_project.py")
+}
+
