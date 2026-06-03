@@ -391,6 +391,7 @@ fun VipDashboardScreen(
 
     var tempDps by remember(minDpsYieldTarget) { mutableStateOf(minDpsYieldTarget) }
     var tempGrowth by remember(minGrowthTarget) { mutableStateOf(minGrowthTarget) }
+    var tempAlertTarget by remember(smartAlertTarget) { mutableStateOf(smartAlertTarget) }
 
     // Tab state (1: Home/خانه , 2: Invest/سود هوشمند , 3: Settings & Simulator/حساب کاربری)
     var currentTab by remember { mutableStateOf(1) }
@@ -1252,6 +1253,40 @@ fun VipDashboardScreen(
                                             viewModel.saveCalibrationSettings(tempDps, tempGrowth)
                                         },
                                         valueRange = 0f..100f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = goldAccent,
+                                            activeTrackColor = goldAccent,
+                                            inactiveTrackColor = borderCol
+                                        ),
+                                        modifier = Modifier.height(28.dp).padding(vertical = 2.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    // Slider 3: Alert Target Dividend (Smart Alert Target)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "کالیبره پایشگر پیام بورس (اطلاع‌رسانی سود بالای):",
+                                            fontSize = 10.sp,
+                                            color = mutedCol
+                                        )
+                                        Text(
+                                            text = "${String.format(Locale.US, "%.1f", tempAlertTarget)}٪",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = goldAccent
+                                        )
+                                    }
+                                    Slider(
+                                        value = tempAlertTarget,
+                                        onValueChange = { tempAlertTarget = it },
+                                        onValueChangeFinished = {
+                                            viewModel.saveSmartAlertTarget(tempAlertTarget)
+                                        },
+                                        valueRange = 10f..60f,
                                         colors = SliderDefaults.colors(
                                             thumbColor = goldAccent,
                                             activeTrackColor = goldAccent,

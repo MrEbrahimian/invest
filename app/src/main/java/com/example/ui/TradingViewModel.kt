@@ -288,6 +288,18 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
+     * Saves alert target percentage dynamically via sliders
+     */
+    fun saveSmartAlertTarget(target: Float) {
+        _smartAlertTarget.value = target
+        sharedPrefs.edit()
+            .putFloat("smart_alert_target", target)
+            .apply()
+        
+        fetchMarketData()
+    }
+
+    /**
      * Saves macroeconomic configurations such as CBI inflation index or Bank Income Fund Rate
      */
     fun saveMacroSettings(inflation: Float, inflationP2P: Float, bankRate: Float, targetYield: Float) {
