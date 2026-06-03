@@ -99,6 +99,14 @@ object TsetmcCrawler {
                                         dps
                                     )
 
+                                    val paymentDelayMonths = when {
+                                        symbol == "فزر" -> 1
+                                        symbol == "بوعلی" || symbol == "شپدیس" -> 1
+                                        symbol.startsWith("ش") || symbol.startsWith("پ") -> 2
+                                        symbol.startsWith("ف") -> 3
+                                        else -> 4
+                                    }
+
                                     // Apply VIP Trading criteria precisely:
                                     // (Volume > 1,000,000) AND (Value > 10,000,000,000 Rials) AND (EPS > 0) AND (P/E >= 2 AND P/E <= 10)
                                     val isVip = volume > 1000000 &&
@@ -125,7 +133,7 @@ object TsetmcCrawler {
                                             pe = pe,
                                             dps = dps,
                                             dpsYield = dpsYield,
-                                            sector = getSectorForSymbol(symbol),
+                                            sector = getSectorForSymbol(symbol), paymentDelayMonths = paymentDelayMonths,
                                             isVipSignal = isVip,
                                             reason = reason,
                                             growthPotential = growthPotential,
@@ -245,6 +253,14 @@ object TsetmcCrawler {
                 else -> "خرداد تا مرداد ← زمان تقسیم سود نقدی مجمع عمومی"
             }
 
+            val paymentDelayMonths = when {
+                def.symbol == "فزر" -> 1
+                def.symbol == "بوعلی" || def.symbol == "شپدیس" -> 1
+                def.symbol.startsWith("ش") || def.symbol.startsWith("پ") -> 2
+                def.symbol.startsWith("ف") -> 3
+                else -> 4
+            }
+
             // Generate past 5 years historical DPS in Rials based on the current estimated dps
             val historicalDps = listOf(
                 (dps * 0.65).toInt(),
@@ -288,7 +304,7 @@ object TsetmcCrawler {
                     pe = pe,
                     dps = dps,
                     dpsYield = dpsYield,
-                    sector = getSectorForSymbol(def.symbol),
+                    sector = getSectorForSymbol(def.symbol), paymentDelayMonths = paymentDelayMonths,
                     isVipSignal = isVip,
                     reason = reason,
                     growthPotential = growthPotential,

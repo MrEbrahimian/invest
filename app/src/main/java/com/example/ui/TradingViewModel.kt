@@ -77,6 +77,12 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _geminiModelName = MutableStateFlow(sharedPrefs.getString("gemini_model_name", "gemini-2.5-flash") ?: "gemini-2.5-flash")
     val geminiModelName: StateFlow<String> = _geminiModelName.asStateFlow()
 
+    private val _expectedSha256 = MutableStateFlow(sharedPrefs.getString("expected_sha256", "BYPASS") ?: "BYPASS")
+    val expectedSha256: StateFlow<String> = _expectedSha256.asStateFlow()
+
+    private val _isAppTampered = MutableStateFlow(false)
+    val isAppTampered: StateFlow<Boolean> = _isAppTampered.asStateFlow()
+
     private val _aiAnalysisResult = MutableStateFlow<Map<String, String>>(emptyMap())
     val aiAnalysisResult: StateFlow<Map<String, String>> = _aiAnalysisResult.asStateFlow()
 
@@ -139,6 +145,22 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
 
     init {
+        // Anti-Crack Signature verification
+        val expectedSig = sharedPrefs.getString("expected_sha256", "BYPASS") ?: "BYPASS"
+        if (expectedSig != "BYPASS" && expectedSig.isNotEmpty()) {
+            val isAuthentic = ActivationManager.verifyAppSignature(application, expectedSig)
+            if (!isAuthentic) {
+                _isAppTampered.value = true
+                // Securely reset and wipe sensitive local activation configurations!
+                sharedPrefs.edit()
+                    .putString("activation_code", "")
+                    .putString("user_mobile", "")
+                    .putString("expiry_date", "")
+                    .apply()
+                _isActivated.value = false
+            }
+        }
+
         // Load initial offline activation status
         val savedMobile = sharedPrefs.getString("user_mobile", "") ?: ""
         val savedExpiry = sharedPrefs.getString("expiry_date", "") ?: ""
@@ -260,6 +282,34 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
             if (currentRecord != null) {
                 repository.deleteCustomDps(currentRecord)
             }
+        }
+    }
+
+    /**
+     * Saves original developer signature check configurations for anti-cracking security.
+     */
+    fun saveSecuritySettings(sha256Fingerprint: String) {
+        val cleanSig = sha256Fingerprint.trim()
+        _expectedSha256.value = cleanSig
+        sharedPrefs.edit()
+            .putString("expected_sha256", cleanSig)
+            .apply()
+
+        if (cleanSig != "BYPASS" && cleanSig.isNotEmpty()) {
+            val isAuthentic = ActivationManager.verifyAppSignature(getApplication(), cleanSig)
+            if (!isAuthentic) {
+                _isAppTampered.value = true
+                sharedPrefs.edit()
+                    .putString("activation_code", "")
+                    .putString("user_mobile", "")
+                    .putString("expiry_date", "")
+                    .apply()
+                _isActivated.value = false
+            } else {
+                _isAppTampered.value = false
+            }
+        } else {
+            _isAppTampered.value = false
         }
     }
 

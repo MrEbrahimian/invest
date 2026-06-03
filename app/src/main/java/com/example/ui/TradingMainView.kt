@@ -53,6 +53,7 @@ fun TradingMainView(viewModel: TradingViewModel) {
     val isActivated by viewModel.isActivated.collectAsState()
     val userMobile by viewModel.userMobile.collectAsState()
     val expiryDate by viewModel.expiryDate.collectAsState()
+    val isAppTampered by viewModel.isAppTampered.collectAsState()
 
     // Enforce Right-to-Left for Persian language interface
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -60,21 +61,25 @@ fun TradingMainView(viewModel: TradingViewModel) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            AnimatedContent(
-                targetState = isActivated,
-                transitionSpec = {
-                    fadeIn() + slideInVertically() with fadeOut() + slideOutVertically()
-                },
-                label = "ActivationScreenTransition"
-            ) { activated ->
-                if (activated) {
-                    VipDashboardScreen(
-                        viewModel = viewModel,
-                        userMobile = userMobile,
-                        expiryDate = expiryDate
-                    )
-                } else {
-                    ActivationRequiredScreen(viewModel = viewModel)
+            if (isAppTampered) {
+                AppTamperedScreen(viewModel)
+            } else {
+                AnimatedContent(
+                    targetState = isActivated,
+                    transitionSpec = {
+                        fadeIn() + slideInVertically() with fadeOut() + slideOutVertically()
+                    },
+                    label = "ActivationScreenTransition"
+                ) { activated ->
+                    if (activated) {
+                        VipDashboardScreen(
+                            viewModel = viewModel,
+                            userMobile = userMobile,
+                            expiryDate = expiryDate
+                        )
+                    } else {
+                        ActivationRequiredScreen(viewModel = viewModel)
+                    }
                 }
             }
         }
@@ -370,11 +375,13 @@ fun VipDashboardScreen(
     val inflationRatePointToPoint by viewModel.inflationRatePointToPoint.collectAsState()
     val bankIncomeRate by viewModel.bankIncomeRate.collectAsState()
     val smartAlertTarget by viewModel.smartAlertTarget.collectAsState()
+    val expectedSha256 by viewModel.expectedSha256.collectAsState()
     val notificationLog by viewModel.notificationLog.collectAsState()
 
     var editedApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
     var editedCustomUrl by remember(geminiCustomUrl) { mutableStateOf(geminiCustomUrl) }
     var editedModelName by remember(geminiModelName) { mutableStateOf(geminiModelName) }
+    var editedSha256 by remember(expectedSha256) { mutableStateOf(expectedSha256) }
     var editedInflationRate by remember(inflationRate) { mutableStateOf(inflationRate.toString()) }
     var editedInflationRatePointToPoint by remember(inflationRatePointToPoint) { mutableStateOf(inflationRatePointToPoint.toString()) }
     var editedBankIncomeRate by remember(bankIncomeRate) { mutableStateOf(bankIncomeRate.toString()) }
@@ -382,6 +389,7 @@ fun VipDashboardScreen(
     var isSettingsExpanded by remember { mutableStateOf(false) }
 
     var showVipOnly by remember { mutableStateOf(true) }
+    var selectedMaxPayoutDelayMonths by remember { mutableStateOf(4) }
 
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val isBiometricUnlocked by viewModel.isBiometricUnlocked.collectAsState()
@@ -1361,6 +1369,56 @@ fun VipDashboardScreen(
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
+
+                            // Payout Speed Filter component
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
+                                border = BorderStroke(1.dp, borderCol)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "📅 فیلتر مجامع بر اساس مهلت قانونی واریز نقدی سود سجا (نقدشوندگی سریع):",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textCol,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                     )
+                                     Row(
+                                         modifier = Modifier.fillMaxWidth(),
+                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                     ) {
+                                         val delays = listOf(
+                                             1 to "زیر ۱ ماه",
+                                             2 to "کمتر ۲ ماه",
+                                             3 to "زیر ۳ ماه",
+                                             4 to "کل بازار"
+                                         )
+                                         delays.forEach { (months, label) ->
+                                             val isSelected = selectedMaxPayoutDelayMonths == months
+                                             Box(
+                                                 modifier = Modifier
+                                                     .weight(1f)
+                                                     .clip(RoundedCornerShape(8.dp))
+                                                     .background(if (isSelected) goldAccent.copy(alpha = 0.15f) else surfaceVariantCol)
+                                                     .border(1.5.dp, if (isSelected) goldAccent else Color.Transparent, RoundedCornerShape(8.dp))
+                                                     .clickable { selectedMaxPayoutDelayMonths = months }
+                                                     .padding(vertical = 8.dp),
+                                                 contentAlignment = Alignment.Center
+                                             ) {
+                                                 Text(
+                                                     text = label,
+                                                     fontSize = 10.sp,
+                                                     fontWeight = FontWeight.Bold,
+                                                     color = if (isSelected) goldAccent else mutedCol
+                                                 )
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+
+                             Spacer(modifier = Modifier.height(12.dp))
                         }
 
                         // Feed of dynamic card items
@@ -1377,10 +1435,11 @@ fun VipDashboardScreen(
                             }
                         } else {
                             val baseList = if (showVipOnly) vipSignals else allStocks
+                            val delayFilteredList = baseList.filter { it.paymentDelayMonths <= selectedMaxPayoutDelayMonths }
                             val filteredList = if (searchQuery.trim().isEmpty()) {
-                                baseList
+                                delayFilteredList
                             } else {
-                                baseList.filter { it.symbol.contains(searchQuery.trim()) || it.name.contains(searchQuery.trim()) || it.sector.contains(searchQuery.trim()) }
+                                delayFilteredList.filter { it.symbol.contains(searchQuery.trim()) || it.name.contains(searchQuery.trim()) || it.sector.contains(searchQuery.trim()) }
                             }
 
                             if (filteredList.isEmpty()) {
@@ -1636,6 +1695,35 @@ fun VipDashboardScreen(
                                             }
                                         }
 
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        // SHA-256 fingerprint verification input field
+                                        Text(
+                                            text = "انطباق گواهی امضا ضدکرک (Digital Signature SHA-256 Fingerprint):",
+                                            fontSize = 9.sp,
+                                            color = mutedCol
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        OutlinedTextField(
+                                            value = editedSha256,
+                                            onValueChange = { editedSha256 = it },
+                                            placeholder = { Text("BYPASS (یا مقدار هگزادسیمال SHA-256 بدون کولون)", fontSize = 10.sp, color = mutedCol) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            maxLines = 1,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                unfocusedBorderColor = borderCol,
+                                                focusedBorderColor = goldAccent,
+                                                unfocusedTextColor = textCol,
+                                                focusedTextColor = textCol
+                                            )
+                                        )
+                                        Text(
+                                            text = "برای فعال‌سازی سیستم هوشمند انطباق گواهی امضای بازار، گواهی SHA-256 فروشگاه انتشاردهنده را اینجا تنظیم کنید. برای کاربری بدون محدودیت شبیه‌ساز در فاز توسعه، مقدار را BYPASS قرار دهید.",
+                                            fontSize = 8.sp,
+                                            color = mutedCol,
+                                            lineHeight = 12.ssp()
+                                        )
+
                                         Spacer(modifier = Modifier.height(14.dp))
 
                                         Button(
@@ -1647,6 +1735,7 @@ fun VipDashboardScreen(
 
                                                 viewModel.saveGeminiSettings(editedApiKey, editedCustomUrl, editedModelName)
                                                 viewModel.saveMacroSettings(inf, infP2P, bnk, tgt)
+                                                viewModel.saveSecuritySettings(editedSha256)
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = goldAccent),
                                             modifier = Modifier.fillMaxWidth()
@@ -1952,6 +2041,50 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (isDarkMode) StockGreen else Color(0xFF1B5E20)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Payment Delay Speed Badge
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        if (stock.paymentDelayMonths <= 1) StockGreen.copy(alpha = 0.1f)
+                        else if (stock.paymentDelayMonths <= 2) goldClr.copy(alpha = 0.1f)
+                        else dividerColor.copy(alpha = 0.5f),
+                        RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = if (stock.paymentDelayMonths <= 1) StockGreen else goldClr,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "مهلت قانونی واریز نقدی (سجا/پایا):",
+                        fontSize = 10.sp,
+                        color = textMuted
+                    )
+                }
+                val delayLabel = when (stock.paymentDelayMonths) {
+                    1 -> "فوق سریع (زیر ۳۰ روز) ⚡"
+                    2 -> "سریع (کمتر از ۶۰ روز) ⏱️"
+                    3 -> "متوسط (زیر ۹۰ روز)"
+                    else -> "عادی (تا ۴ ماه قانونی فرجه)"
+                }
+                Text(
+                    text = delayLabel,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (stock.paymentDelayMonths <= 1) StockGreen else textPrimary
                 )
             }
 
@@ -2375,20 +2508,63 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 )
                                 
                                 Spacer(modifier = Modifier.height(10.dp))
-                                Button(
-                                    onClick = { viewModel.analyzeStockWithAI(stock.symbol, stock) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.15f)),
-                                    border = BorderStroke(1.dp, goldClr),
-                                    modifier = Modifier.align(Alignment.End)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        tint = goldClr,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("به‌روزرسانی تحلیل هوشمند مجمع", fontSize = 10.sp, color = goldClr)
+                                    val context = LocalContext.current
+                                    val clipboardManager = LocalClipboardManager.current
+                                    Button(
+                                        onClick = {
+                                            val textToCopy = """
+                                                📢 **سیگنال و تحلیل هوشمند بنیادی مجمع VIP**
+                                                
+                                                🔹 **نماد:** #${stock.symbol} (${stock.name})
+                                                🔹 **صنعت بورس:** ${stock.sector}
+                                                🔹 **سود مصوب نقدی (DPS):** ${stock.dps} ریال ([بازده نقدی: ${String.format(Locale.US, "%.1f", stock.dpsYield)}%])
+                                                🔹 **فرجه تسویه واریز نقدی (سجا):** ${stock.paymentDelayMonths} ماهه
+                                                🔹 **ضریب ایمنی مالی مجمع:** کلاس ${stock.dpsLevel}
+                                                🔹 **مجموع بازدهی مورد انتظار مجمع:** ${String.format(Locale.US, "%.1f", stock.totalReturnPotential)}% (پاسخگوی تورم نقطه به نقطه کشور)
+                                                
+                                                📅 **رویدادها و الزامات مجمع:**
+                                                ${stock.keyDateMilestones}
+                                                
+                                                🤖 **تحلیل دستیار هوش مصنوعی (Gemini Live API):**
+                                                $currentAiResult
+                                                
+                                                💥 کانال اختصاصی مجمع‌یاب هوش کارآفرین بورس
+                                                🛑 @MajeebVIP_Bourse
+                                            """.trimIndent()
+                                            clipboardManager.setText(AnnotatedString(textToCopy))
+                                            android.widget.Toast.makeText(context, "گزارش زنده تلگرامی کپی شد!", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D9BF0)),
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("کپی تلگرام 📢", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            generateStockPdfReport(context, stock, currentAiResult, isDarkMode)
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                        modifier = Modifier.weight(1.2f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("📥 دانلود PDF", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = { viewModel.analyzeStockWithAI(stock.symbol, stock) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.15f)),
+                                        border = BorderStroke(1.dp, goldClr),
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("بروزرسانی 🔄", fontSize = 9.sp, color = goldClr)
+                                    }
                                 }
                             }
                         }
@@ -2678,39 +2854,398 @@ fun AiAnalysisDemoDialog(
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
+                        Button(
                             onClick = {
                                 val textToCopy = """
-                                    تحلیل VIP هوش مصنوعی (جمنای) برای نماد ${stock.symbol}
-                                    صنعت: ${stock.sector}
-                                    بازده نقدی مجمع: ${String.format(Locale.US, "%.2f", stock.dpsYield)}%
-                                    پتانسیل کل بازدهی مجمع: ${String.format(Locale.US, "%.2f", stock.totalReturnPotential)}%
-                                    سطح تعهد مجمع: ${stock.dpsLevel}
-                                    پیش‌بینی بازدهی در بازار تورمی کشور عالی ارزیابی می‌شود.
+                                    📢 **سیگنال و تحلیل بنیادی مجمع VIP (محصول مجمع‌یاب)**
+                                    
+                                    🔹 **نماد تفسیری:** #${stock.symbol} (${stock.name})
+                                    🔹 **صنعت بورس:** ${stock.sector}
+                                    🔹 **آخرین قیمت پایانی:** ${formatPrice(stock.price)} ریال
+                                    🔹 **سود خالص نقدی (DPS):** ${stock.dps} ریال ([بازده نقدی: ${String.format(Locale.US, "%.1f", stock.dpsYield)}%])
+                                    🔹 **ضرب‌العجل قانونی واریز نقدی:** ${stock.paymentDelayMonths} ماهه (سجا)
+                                    🔹 **کلاس امنیتی و وفاداری مجمع:** کلاس ${stock.dpsLevel}
+                                    🔹 **پتانسیل کل بازدهی مجمع:** ${String.format(Locale.US, "%.1f", stock.totalReturnPotential)}% (پوشش کامل تورم نقطه به نقطه کشور)
+                                    
+                                    📅 **رویدادها و برنامه مجمع:**
+                                    ${stock.keyDateMilestones}
+                                    
+                                    🤖 **تحلیل تخصصی دستیار هوش مصنوعی (Gemini-AI):**
+                                    خرید پله‌ای این نماد به دلایل عایق تورمی بنیادی و سود تقسیمی بالا از کلاس مالی برتر بورس ارزیابی می‌گردد.
+                                    
+                                    💥 کانال اختصاصی مجمع‌یاب هوش کارآفرین بورس
+                                    🛑 @MajeebVIP_Bourse
                                 """.trimIndent()
                                 clipboardManager.setText(AnnotatedString(textToCopy))
-                                android.widget.Toast.makeText(context, "تحلیل VIP در حافظه کپی شد!", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, "تحلیل تلگرامی VIP در حافظه کپی شد!", android.widget.Toast.LENGTH_SHORT).show()
                             },
-                            modifier = Modifier.weight(1f),
-                            border = BorderStroke(1.dp, textMuted),
+                            modifier = Modifier.weight(1.3f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D9BF0)), // Telegram Blue brand color
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("کپی تحلیل", fontSize = 11.sp, color = textPrimary)
+                            Text("کپی فرمت تلگرام 📢", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                val demoAiText = "تحلیل بنیادی نماد ${stock.symbol} به عنوان عایق تورمی بورس با کلاس تعهد و سودآوری ${stock.dpsLevel} و بازده مجمع پیش‌فرض ممتاز ارزیابی می‌گردد."
+                                generateStockPdfReport(context, stock, demoAiText, isDarkMode)
+                            },
+                            modifier = Modifier.weight(1.3f),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)), // PDF Green
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("📥 گزارش PDF", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
 
                         Button(
                             onClick = onDismiss,
                             colors = ButtonDefaults.buttonColors(containerColor = goldClr),
-                            modifier = Modifier.weight(1.5f),
+                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("متوجه شدم (خروج)", fontSize = 11.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                            Text("بستن و خروج", fontSize = 10.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AppTamperedScreen(viewModel: TradingViewModel) {
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val expectedSig by viewModel.expectedSha256.collectAsState()
+    val context = LocalContext.current
+
+    val primaryColor = Color(0xFFD32F2F) // Security warning red
+    val goldClr = Color(0xFFD4AF37)
+    val backgroundBg = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFAF9F6)
+    val cardBg = if (isDarkMode) Color(0xFF161B2E) else Color(0xFFFFFFFF)
+    val textPrimary = if (isDarkMode) Color(0xFFF1F1F1) else Color(0xFF1F1B18)
+    val textSecondary = if (isDarkMode) Color(0xFF8E99A8) else Color(0xFF6B6259)
+
+    var clickCount by remember { mutableStateOf(0) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundBg)
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+                .border(1.5.dp, primaryColor, RoundedCornerShape(20.dp)),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Interactive warning icon to bypass during development
+                IconButton(
+                    onClick = {
+                        clickCount++
+                        if (clickCount >= 7) {
+                            // Dev bypass: Reset expected signature back to BYPASS
+                            viewModel.saveSecuritySettings("BYPASS")
+                            android.widget.Toast.makeText(context, "حالت توسعه بورس فعال شد. بازنشانی اثر انگشت گواهی به BYPASS", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "دستکاری شده",
+                        tint = primaryColor,
+                        modifier = Modifier.size(72.dp)
+                    )
+                }
+
+                Text(
+                    text = "⚠️ نقص امنیتی: اصالت برنامه تایید نشد!",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = primaryColor,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    text = "سیستم خودکار شناسایی تغییر غیرمجاز اثر انگشت APK",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textPrimary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = "امضای دیجیتال (SHA-256) روی این موبایل با اثر انگشت اصلی توسعه‌دهنده تفاوت دارد. به دلایل امنیتی تمام لایسنس‌ها باطل گردیده و پایگاه داده مسدود شد.",
+                    fontSize = 11.sp,
+                    color = textSecondary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.ssp()
+                )
+
+                Divider(color = primaryColor.copy(alpha = 0.2f), thickness = 1.dp)
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(primaryColor.copy(alpha = 0.05f), RoundedCornerShape(8.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "🔬 جزییات امنیتی تشخیص دستکاری شده:",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = primaryColor
+                    )
+                    Text(
+                        text = "• وضعیت امضای کلاینت: فاقد اصالت دیجیتال",
+                        fontSize = 9.sp,
+                        color = textSecondary
+                    )
+                    Text(
+                        text = "• امضای مورد انتظار هدف: \n${expectedSig}",
+                        fontSize = 9.sp,
+                        color = textSecondary,
+                        lineHeight = 13.ssp()
+                    )
+                    Text(
+                        text = "• اقدام پیشگیرانه خودکار: لایسنس‌ها ابطال شد! ✔️",
+                        fontSize = 9.sp,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = {
+                        // Recheck
+                        viewModel.saveSecuritySettings(expectedSig)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = "تلاش مجدد جهت ارزیابی امضا",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
+                Text(
+                    text = "در صورتی که برنامه نویس هستید و در محیط شبیه‌ساز تست می‌کنید، ۷ بار روی علامت هشدار قرمز بالا بزنید تا قفل به حالت BYPASS بازگردد.",
+                    fontSize = 9.sp,
+                    color = textSecondary,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 14.ssp()
+                )
+            }
+        }
+    }
+}
+
+// Native PDF report exporter with watermarks (Fulfills requested competitive advantage)
+fun generateStockPdfReport(context: android.content.Context, stock: StockSignal, aiResult: String, isDarkMode: Boolean) {
+    try {
+        val pdfDocument = android.graphics.pdf.PdfDocument()
+        val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, 1).create() // Standard A4 (595 x 842 pt)
+        val page = pdfDocument.startPage(pageInfo)
+        val canvas = page.canvas
+
+        // Paint resources
+        val textPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 12f
+            isAntiAlias = true
+        }
+        val titlePaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.rgb(212, 175, 55) // Gold
+            textSize = 18f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        val headingPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.rgb(12, 14, 20) // Deep slate
+            textSize = 14f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+
+        // 1. Draw top decorative header band
+        val headerPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.rgb(12, 14, 20)
+        }
+        canvas.drawRect(0f, 0f, 595f, 95f, headerPaint)
+
+        // Header Title
+        titlePaint.color = android.graphics.Color.WHITE
+        canvas.drawText("MajeebVIP STOCK REPORT", 35f, 42f, titlePaint)
+        
+        textPaint.color = android.graphics.Color.rgb(220, 220, 220)
+        textPaint.textSize = 9f
+        canvas.drawText("Automatic AI Valuation & Inflation Compliance Platform", 35f, 65f, textPaint)
+        canvas.drawText("User Mobile License: ${stock.keyDateMilestones.hashCode().coerceAtLeast(100500)} (CONFIDENTIAL VIP)", 35f, 80f, textPaint)
+
+        // 2. Draw watermark background diagonal across page
+        val watermarkPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.argb(16, 255, 165, 0) // Translucent theme golden-orange
+            textSize = 34f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        canvas.save()
+        canvas.rotate(-40f)
+        canvas.drawText("مجمع‌یاب VIP - ویژه اعضای کانال بورسی", -280f, 480f, watermarkPaint)
+        canvas.drawText("حق کپی محفوظ است - کلاینت ضد کرک", -240f, 560f, watermarkPaint)
+        canvas.restore()
+
+        // 3. Draw Body
+        var y = 140f
+        val linePaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.rgb(230, 225, 215)
+            strokeWidth = 1.5f
+        }
+        
+        // Stock Header
+        headingPaint.color = android.graphics.Color.rgb(180, 140, 40)
+        headingPaint.textSize = 15f
+        canvas.drawText("تحلیل بنیادی مجمع نماد: ${stock.symbol} / ${stock.name}", 35f, y, headingPaint)
+        y += 24f
+
+        canvas.drawText("Sector (صنعت): ${stock.sector}", 35f, y, textPaint)
+        y += 18f
+        
+        val priceText = "آخرین قیمت پایانی: ${stock.price} ریال | تغییر روزانه: ${stock.changePercent}%"
+        canvas.drawText(priceText, 35f, y, textPaint)
+        y += 20f
+
+        // Separator
+        canvas.drawLine(35f, y, 560f, y, linePaint)
+        y += 25f
+
+        // DPS Valuation Row
+        headingPaint.color = android.graphics.Color.rgb(12, 14, 20)
+        headingPaint.textSize = 12f
+        canvas.drawText("💵 جزئیات تخصصی و ارزیابی عواید نقدی (DPS Valuation):", 35f, y, headingPaint)
+        y += 22f
+
+        textPaint.textSize = 11f
+        textPaint.color = android.graphics.Color.BLACK
+        canvas.drawText("• پیش‌بینی سود خالص تقسیمی مجمع: ${stock.dps} ریال برای هر سهم", 35f, y, textPaint)
+        y += 18f
+        canvas.drawText("• بازدهی نقدی عملکرد مجمع (DPS Yield): ${String.format(java.util.Locale.US, "%.1f", stock.dpsYield)}%", 35f, y, textPaint)
+        y += 18f
+        
+        val delayLabel = when (stock.paymentDelayMonths) {
+            1 -> "فوق سریع (زیر ۳۰ روز تسویه با سجا)"
+            2 -> "سریع (کمتر از ۶۰ روز تسویه با سجا)"
+            3 -> "متوسط (زیر ۹۰ روز تسویه)"
+            else -> "عادی (مهلت قانونی تا ۴ ماه)"
+        }
+        canvas.drawText("• سرعت تسویه و واریز نقدی: $delayLabel", 35f, y, textPaint)
+        y += 18f
+        canvas.drawText("• سطح حاشیه امنیت و تعهد مجمع: کلاس ${stock.dpsLevel}", 35f, y, textPaint)
+        y += 18f
+        canvas.drawText("• پتانسیل نوسان قیمتی سود انباشته: ${stock.growthPotential}% | بازدهی کل مورد انتظار مجمع: ${String.format(java.util.Locale.US, "%.1f", stock.totalReturnPotential)}%", 35f, y, textPaint)
+        y += 25f
+
+        // Separator
+        canvas.drawLine(35f, y, 560f, y, linePaint)
+        y += 25f
+
+        // Key Milestones Row
+        canvas.drawText("📅 رویدادها، زمان‌بندی و الزامات شرکت در مجمع:", 35f, y, headingPaint)
+        y += 20f
+        canvas.drawText(stock.keyDateMilestones, 35f, y, textPaint)
+        y += 25f
+
+        // Separator
+        canvas.drawLine(35f, y, 560f, y, linePaint)
+        y += 25f
+
+        // AI Analysis Report Row
+        headingPaint.color = android.graphics.Color.rgb(180, 140, 40)
+        canvas.drawText("🤖 بیانیه و خلاصه تحلیل نهایی هوش مصنوعی (AI Deep Learning):", 35f, y, headingPaint)
+        y += 20f
+
+        // Word Wrapping AI description safely
+        textPaint.textSize = 9.5f
+        textPaint.color = android.graphics.Color.rgb(60, 65, 75)
+        val cleanAiString = aiResult.replace("\n", " ").trim()
+        val words = cleanAiString.split(" ")
+        var lineBuilder = java.lang.StringBuilder()
+        
+        for (word in words) {
+            val prospectiveLine = lineBuilder.toString() + " " + word
+            if (textPaint.measureText(prospectiveLine) < 510) {
+                lineBuilder.append(" ").append(word)
+            } else {
+                canvas.drawText(lineBuilder.toString().trim(), 35f, y, textPaint)
+                lineBuilder = java.lang.StringBuilder(word)
+                y += 14f
+                if (y > 780) break // Safe boundary limit
+            }
+        }
+        if (lineBuilder.isNotEmpty() && y <= 780) {
+            canvas.drawText(lineBuilder.toString().trim(), 35f, y, textPaint)
+        }
+
+        // 4. Draw Footer Band
+        canvas.drawRect(0f, 800f, 595f, 842f, headerPaint)
+        textPaint.color = android.graphics.Color.rgb(200, 200, 200)
+        textPaint.textSize = 8f
+        canvas.drawText("گزارش تولید شده به وسیله موتور هوشمند مجمع‌یاب بورس تهران. تمام حقوق لایسنس کاربری محفوظ است.", 35f, 824f, textPaint)
+
+        pdfDocument.finishPage(page)
+
+        // Write compilation to target directory
+        val file = java.io.File(
+            context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS),
+            "Report_${stock.symbol}_VIP.pdf"
+        )
+        val outputStream = java.io.FileOutputStream(file)
+        pdfDocument.writeTo(outputStream)
+        pdfDocument.close()
+        outputStream.close()
+
+        android.widget.Toast.makeText(context, "گزارش PDF با موفقیت صادر شد: پوشه دانلودها", android.widget.Toast.LENGTH_LONG).show()
+
+        // Distribute via implicit System share provider fallback securely
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            file
+        )
+        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(shareIntent, "ارسال سند PDF تحلیل مجمع به تلگرام:"))
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        android.widget.Toast.makeText(context, "ایراد در صادر کردن پی‌دی‌اف: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
     }
 }

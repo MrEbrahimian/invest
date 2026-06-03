@@ -1,6 +1,8 @@
 package com.example.security
 
 import android.util.Base64
+import android.content.pm.PackageManager
+import java.security.MessageDigest
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -95,6 +97,48 @@ object ActivationManager {
             Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
         } catch (e: Exception) {
             ""
+        }
+    }
+
+    /**
+     * Checks if the app certificate SHA-256 fingerprint matches the original developer signature.
+     * If there's a mismatch (e.g. cracked, re-signed APK), developers can choose to delete local configs and freeze.
+     */
+    fun verifyAppSignature(context: android.content.Context, expectedSha256Hex: String): Boolean {
+        // If empty or bypass signature, allow development workspace
+        if (expectedSha256Hex.isBlank() || expectedSha256Hex == "BYPASS") {
+            return true
+        }
+        return try {
+            val packageName = context.packageName
+            val packageManager = context.packageManager
+            
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
+
+            if (signatures != null) {
+                for (sig in signatures) {
+                    val certBytes = sig.toByteArray()
+                    val md = MessageDigest.getInstance("SHA-256")
+                    val digest = md.digest(certBytes)
+                    val currentHex = digest.joinToString("") { "%02x".format(it) }
+                    
+                    val expectedCleaned = expectedSha256Hex.replace(":", "").lowercase(Locale.US).trim()
+                    if (currentHex.lowercase(Locale.US).trim() == expectedCleaned) {
+                        return true
+                    }
+                }
+            }
+            false
+        } catch (e: Exception) {
+            false
         }
     }
 }
