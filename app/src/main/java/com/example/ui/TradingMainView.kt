@@ -384,6 +384,14 @@ fun VipDashboardScreen(
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val isBiometricUnlocked by viewModel.isBiometricUnlocked.collectAsState()
 
+    // Calibration settings state representing user's adjustable criteria
+    val minDpsYieldTarget by viewModel.minDpsYieldTarget.collectAsState()
+    val minGrowthTarget by viewModel.minGrowthTarget.collectAsState()
+    val hiddenSignals by viewModel.hiddenSignals.collectAsState()
+
+    var tempDps by remember(minDpsYieldTarget) { mutableStateOf(minDpsYieldTarget) }
+    var tempGrowth by remember(minGrowthTarget) { mutableStateOf(minGrowthTarget) }
+
     // Tab state (1: Home/خانه , 2: Invest/سود هوشمند , 3: Settings & Simulator/حساب کاربری)
     var currentTab by remember { mutableStateOf(1) }
     var searchQuery by remember { mutableStateOf("") }
@@ -1139,6 +1147,118 @@ fun VipDashboardScreen(
                                             }
                                         }
                                     }
+                                }
+                            }
+
+                            // koli_calibration_sliders Card representing user preferred dividend yield and growth metrics
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
+                                border = BorderStroke(1.dp, borderCol)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Default.Tune,
+                                                contentDescription = null,
+                                                tint = goldAccent,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "کالیبراسیون تخصصی اهداف سود و پتانسیل رشد مجمع",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = textCol
+                                            )
+                                        }
+                                        if (hiddenSignals.isNotEmpty()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(goldAccent.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "${hiddenSignals.size} سهم فیلتر شده (خارج از کالیبر)",
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = goldAccent
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Slider 1: Expected DPS Yield
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "حداقل سود تقسیمی سالانه مورد انتظار (DPS):",
+                                            fontSize = 10.sp,
+                                            color = mutedCol
+                                        )
+                                        Text(
+                                            text = "${String.format(Locale.US, "%.1f", tempDps)}٪",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = goldAccent
+                                        )
+                                    }
+                                    Slider(
+                                        value = tempDps,
+                                        onValueChange = { tempDps = it },
+                                        onValueChangeFinished = {
+                                            viewModel.saveCalibrationSettings(tempDps, tempGrowth)
+                                        },
+                                        valueRange = 0f..50f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = goldAccent,
+                                            activeTrackColor = goldAccent,
+                                            inactiveTrackColor = borderCol
+                                        ),
+                                        modifier = Modifier.height(28.dp).padding(vertical = 2.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    // Slider 2: Min growth potential
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "حداقل پتانسیل رشد سالانه ارزش فنی سهم:",
+                                            fontSize = 10.sp,
+                                            color = mutedCol
+                                        )
+                                        Text(
+                                            text = "${String.format(Locale.US, "%.1f", tempGrowth)}٪",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = goldAccent
+                                        )
+                                    }
+                                    Slider(
+                                        value = tempGrowth,
+                                        onValueChange = { tempGrowth = it },
+                                        onValueChangeFinished = {
+                                            viewModel.saveCalibrationSettings(tempDps, tempGrowth)
+                                        },
+                                        valueRange = 0f..100f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = goldAccent,
+                                            activeTrackColor = goldAccent,
+                                            inactiveTrackColor = borderCol
+                                        ),
+                                        modifier = Modifier.height(28.dp).padding(vertical = 2.dp)
+                                    )
                                 }
                             }
 
