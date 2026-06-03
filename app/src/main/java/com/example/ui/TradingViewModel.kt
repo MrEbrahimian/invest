@@ -74,6 +74,9 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _geminiCustomUrl = MutableStateFlow(sharedPrefs.getString("gemini_custom_url", "https://generativelanguage.googleapis.com/") ?: "https://generativelanguage.googleapis.com/")
     val geminiCustomUrl: StateFlow<String> = _geminiCustomUrl.asStateFlow()
 
+    private val _geminiModelName = MutableStateFlow(sharedPrefs.getString("gemini_model_name", "gemini-2.5-flash") ?: "gemini-2.5-flash")
+    val geminiModelName: StateFlow<String> = _geminiModelName.asStateFlow()
+
     private val _aiAnalysisResult = MutableStateFlow<Map<String, String>>(emptyMap())
     val aiAnalysisResult: StateFlow<Map<String, String>> = _aiAnalysisResult.asStateFlow()
 
@@ -263,13 +266,16 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     /**
      * Saves custom API settings for Gemini / Custom API Gateways
      */
-    fun saveGeminiSettings(key: String, url: String) {
+    fun saveGeminiSettings(key: String, url: String, model: String) {
         val cleanUrl = if (url.trim().endsWith("/")) url.trim() else "${url.trim()}/"
+        val cleanModel = model.trim().ifBlank { "gemini-2.5-flash" }
         _geminiApiKey.value = key.trim()
         _geminiCustomUrl.value = cleanUrl
+        _geminiModelName.value = cleanModel
         sharedPrefs.edit()
             .putString("gemini_api_key", key.trim())
             .putString("gemini_custom_url", cleanUrl)
+            .putString("gemini_model_name", cleanModel)
             .apply()
     }
 
@@ -415,13 +421,14 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .build()
 
+                val modelName = _geminiModelName.value
                 val targetUrl = if (url.contains("googleapis.com")) {
-                    "${url}v1beta/models/gemini-2.5-flash:generateContent?key=$key"
+                    "${url}v1beta/models/$modelName:generateContent?key=$key"
                 } else {
                     if (url.contains("?")) {
                         "$url&key=$key"
                     } else {
-                        "${url}v1beta/models/gemini-2.5-flash:generateContent?key=$key"
+                        "${url}v1beta/models/$modelName:generateContent?key=$key"
                     }
                 }
 

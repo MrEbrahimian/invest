@@ -365,6 +365,7 @@ fun VipDashboardScreen(
     // Collect AI & Macro Economic settings state
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val geminiCustomUrl by viewModel.geminiCustomUrl.collectAsState()
+    val geminiModelName by viewModel.geminiModelName.collectAsState()
     val inflationRate by viewModel.inflationRate.collectAsState()
     val inflationRatePointToPoint by viewModel.inflationRatePointToPoint.collectAsState()
     val bankIncomeRate by viewModel.bankIncomeRate.collectAsState()
@@ -373,6 +374,7 @@ fun VipDashboardScreen(
 
     var editedApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
     var editedCustomUrl by remember(geminiCustomUrl) { mutableStateOf(geminiCustomUrl) }
+    var editedModelName by remember(geminiModelName) { mutableStateOf(geminiModelName) }
     var editedInflationRate by remember(inflationRate) { mutableStateOf(inflationRate.toString()) }
     var editedInflationRatePointToPoint by remember(inflationRatePointToPoint) { mutableStateOf(inflationRatePointToPoint.toString()) }
     var editedBankIncomeRate by remember(bankIncomeRate) { mutableStateOf(bankIncomeRate.toString()) }
@@ -1558,6 +1560,29 @@ fun VipDashboardScreen(
                                             )
                                         )
 
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                        // Custom model ID parameter
+                                        Text(
+                                            text = "نام مدل هوش مصنوعی (Model ID):",
+                                            fontSize = 10.sp,
+                                            color = mutedCol
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        OutlinedTextField(
+                                            value = editedModelName,
+                                            onValueChange = { editedModelName = it },
+                                            placeholder = { Text("gemini-2.5-flash", fontSize = 11.sp, color = mutedCol) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            maxLines = 1,
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                unfocusedBorderColor = borderCol,
+                                                focusedBorderColor = goldAccent,
+                                                unfocusedTextColor = textCol,
+                                                focusedTextColor = textCol
+                                            )
+                                        )
+
                                         Spacer(modifier = Modifier.height(12.dp))
 
                                         // Variable Overrides
@@ -1620,7 +1645,7 @@ fun VipDashboardScreen(
                                                 val bnk = editedBankIncomeRate.toFloatOrNull() ?: 30.0f
                                                 val tgt = editedSmartAlertTarget.toFloatOrNull() ?: 35.0f
 
-                                                viewModel.saveGeminiSettings(editedApiKey, editedCustomUrl)
+                                                viewModel.saveGeminiSettings(editedApiKey, editedCustomUrl, editedModelName)
                                                 viewModel.saveMacroSettings(inf, infP2P, bnk, tgt)
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = goldAccent),
@@ -1787,6 +1812,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
 
     var expanded by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
+    var showDemoDialog by remember { mutableStateOf(false) }
 
     // State bindings for direct manual user inputs
     var yr1 by remember(stock) { mutableStateOf(stock.historicalDps.getOrElse(0) { 100 }.toString()) }
@@ -2080,8 +2106,8 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 .background(itemBg, RoundedCornerShape(8.dp))
                                 .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
                                 .clickable {
-                                    // Open the specific TSETMC search URL or general board for assurance
-                                    uriHandler.openUri("https://old.tsetmc.com")
+                                    // Open the specific TSETMC search page for this symbol
+                                    uriHandler.openUri("https://main.tsetmc.com/InstSearch?val=${stock.symbol}")
                                 }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -2100,8 +2126,8 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 .background(itemBg, RoundedCornerShape(8.dp))
                                 .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
                                 .clickable {
-                                    // Open official CODAL report query with stock ticker
-                                    uriHandler.openUri("https://codal.ir/Search.aspx?Ticker=${stock.symbol}")
+                                    // Open official CODAL report query with stock Farsi symbol
+                                    uriHandler.openUri("https://www.codal.ir/Search.aspx?Symbol=${stock.symbol}")
                                 }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -2385,10 +2411,36 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 Text("تحلیل و پایش آنی سهم با هوش مصنوعی (جمنای)", fontSize = 11.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
                             }
                         }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Button(
+                            onClick = { showDemoDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.12f)),
+                            border = BorderStroke(1.dp, goldClr),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = goldClr,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("🎯 مشاهده آفلاین نمونه تحلیل هوشمند هوش مصنوعی (VIP)", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
+    }
+    
+    if (showDemoDialog) {
+        AiAnalysisDemoDialog(
+            stock = stock,
+            onDismiss = { showDemoDialog = false },
+            isDarkMode = isDarkMode
+        )
     }
 }
 
@@ -2461,6 +2513,204 @@ fun showBiometricPrompt(context: android.content.Context, onResult: (Boolean) ->
             biometricPrompt.authenticate(promptInfo)
         } catch (e: Exception) {
             onResult(true) // Fallback for emulator and devices without hardware enrollments
+        }
+    }
+}
+
+@Composable
+fun AiAnalysisDemoDialog(
+    stock: StockSignal,
+    onDismiss: () -> Unit,
+    isDarkMode: Boolean
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val goldClr = Color(0xFFD4AF37)
+    val cardBg = if (isDarkMode) Color(0xFF0E1324) else Color(0xFFFDFCFA)
+    val textPrimary = if (isDarkMode) Color(0xFFF5F3EF) else Color(0xFF1F1B18)
+    val textMuted = if (isDarkMode) Color(0xFF8E99A8) else Color(0xFF6B6259)
+    val borderCol = if (isDarkMode) Color(0xFF23314A) else Color(0xFFE3DEC1)
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .border(2.dp, goldClr, RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            color = cardBg
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = goldClr,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "تحلیل VIP هوش مصنوعی (جمنای)",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = goldClr
+                            )
+                        }
+                        IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "بستن",
+                                tint = textMuted
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF171F36) else Color(0xFFF7F5EE)),
+                        border = BorderStroke(1.dp, borderCol)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("نماد تحلیل‌شده:", fontSize = 11.sp, color = textMuted)
+                                Text(stock.symbol, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = goldClr)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("صنعت:", fontSize = 11.sp, color = textMuted)
+                                Text(stock.sector, fontSize = 11.sp, color = textPrimary)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("قیمت فعلی:", fontSize = 11.sp, color = textMuted)
+                                Text("${formatPrice(stock.price)} ریال", fontSize = 11.sp, color = textPrimary)
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Text(
+                        text = "📌 ارزیابی بازده نقدی (DPS) و سود مرکب مجمع",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = goldClr
+                    )
+                    Text(
+                        text = "نماد ${stock.symbol} در آخرین دوره مجمع خود با سود تقسیمی مصوب ${stock.dps} ریال به بازده نقدی چشمگیر ${String.format(Locale.US, "%.2f", stock.dpsYield)}٪ رسیده است. با در نظر گرفتن تاریخچه روند ثبات تقسیم سود ۵ سال گذشته (${stock.historicalDps.joinToString("، ") { "${it} ریال" }})، این شرکت دارای تعهد مالی بالا به سهامداران (کلاس ارزیابی ${stock.dpsLevel}) است.",
+                        fontSize = 11.sp,
+                        color = textPrimary,
+                        lineHeight = 18.ssp()
+                    )
+                }
+
+                item {
+                    Text(
+                        text = "📊 انطباق با شاخص تورم نقطه به نقطه کشور",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = goldClr
+                    )
+                    Text(
+                        text = "سرمایه‌گذاری روی این سهم با هدف نگهداشت تا مجمع، در مقایسه مستقیم با نرخ سپرده بانکی ۳۰٪ و تورم افسارگسیخته کشور (۴۸.۳٪) مزیت مهمی ایجاد می‌کند. پتانسیل افزایش قیمت روز نماد مجمع و انباشت سود معادل ${stock.growthPotential}٪ ارزیابی می‌شود که کل بازدهی مجمع را به عدد خیره‌کننده ${String.format(Locale.US, "%.2f", stock.totalReturnPotential)}٪ می‌رساند. این بازدهی کاملاً پاسخگوی نرخ افت ارزش پول ملی خواهد بود.",
+                        fontSize = 11.sp,
+                        color = textPrimary,
+                        lineHeight = 18.ssp()
+                    )
+                }
+
+                item {
+                    Text(
+                        text = "💡 استراتژی تکنیکال و سناریوهای مجمع یاب VIP",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = goldClr
+                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (isDarkMode) Color(0xFF131B30) else Color(0xFFFAF7EF), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = "✔️ استراتژی ورود: ورود پله‌ای با وزن ۲۰٪ سبد از هم‌اکنون تا ۳۰ روز قبل از مجمع.",
+                            fontSize = 10.sp,
+                            color = textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "📅 رویدادهای کلیدی مجمع: ${stock.keyDateMilestones}",
+                            fontSize = 10.sp,
+                            color = textPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "❌ سناریوی حد ضرر: در صورت شکست حمایت تکنیکال قیمت پایانی روزانه زیر سطح ۱۰٪ ارزش فعلی.",
+                            fontSize = 10.sp,
+                            color = textPrimary
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val textToCopy = """
+                                    تحلیل VIP هوش مصنوعی (جمنای) برای نماد ${stock.symbol}
+                                    صنعت: ${stock.sector}
+                                    بازده نقدی مجمع: ${String.format(Locale.US, "%.2f", stock.dpsYield)}%
+                                    پتانسیل کل بازدهی مجمع: ${String.format(Locale.US, "%.2f", stock.totalReturnPotential)}%
+                                    سطح تعهد مجمع: ${stock.dpsLevel}
+                                    پیش‌بینی بازدهی در بازار تورمی کشور عالی ارزیابی می‌شود.
+                                """.trimIndent()
+                                clipboardManager.setText(AnnotatedString(textToCopy))
+                                android.widget.Toast.makeText(context, "تحلیل VIP در حافظه کپی شد!", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            modifier = Modifier.weight(1f),
+                            border = BorderStroke(1.dp, textMuted),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("کپی تحلیل", fontSize = 11.sp, color = textPrimary)
+                        }
+
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = goldClr),
+                            modifier = Modifier.weight(1.5f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("متوجه شدم (خروج)", fontSize = 11.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
     }
 }
