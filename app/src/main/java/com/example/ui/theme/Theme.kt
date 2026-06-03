@@ -4,7 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 
 private val DarkColorScheme = darkColorScheme(
     primary = GoldPrimary,           // Noble Gold
@@ -43,10 +46,28 @@ fun MyApplicationTheme(
     content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) DarkColorScheme else LightColorScheme
+    val context = LocalContext.current
+
+    val safeFontFamily = remember(context) {
+        try {
+            // Attempt to load the fonts natively using Android's ResourcesCompat
+            androidx.core.content.res.ResourcesCompat.getFont(context, com.example.R.font.estedad_regular)
+            androidx.core.content.res.ResourcesCompat.getFont(context, com.example.R.font.estedad_bold)
+            // If they load fine without throwing exceptions, we can safely use the custom font family
+            EstedadFontFamily
+        } catch (t: Throwable) {
+            // If loading fails (e.g. Samsung system font bug, compression issue), fallback to standard system sans-serif
+            FontFamily.SansSerif
+        }
+    }
+
+    val typography = remember(safeFontFamily) {
+        getTypography(safeFontFamily)
+    }
 
     MaterialTheme(
         colorScheme = colors,
-        typography = Typography,
+        typography = typography,
         content = content
     )
 }

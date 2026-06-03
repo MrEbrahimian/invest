@@ -55,6 +55,10 @@ android {
     compose = true
     buildConfig = true
   }
+  androidResources {
+    noCompress.add("ttf")
+    noCompress.add("otf")
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
