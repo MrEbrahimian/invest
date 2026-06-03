@@ -2,11 +2,49 @@
 import os
 import shutil
 import zipfile
+import urllib.request
+import ssl
+
+def download_file(url, dest_path):
+    print(f"Downloading {url} to {dest_path}...")
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        # Add user agent to act like a real browser
+        req = urllib.request.Request(
+            url, 
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+        )
+        with urllib.request.urlopen(req, context=ctx, timeout=30) as response, open(dest_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+        print("Download successful.")
+        return True
+    except Exception as e:
+        print(f"Download failed: {e}")
+        return False
 
 def setup_project():
     source_dir = "./app"
     target_dir = "./vip_bourse_project"
     
+    # Pre-download Estedad fonts to the main app folder first so we have them for our running app
+    estedad_font_dir = "./app/src/main/res/font"
+    os.makedirs(estedad_font_dir, exist_ok=True)
+    
+    reg_url = "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Regular.ttf"
+    bold_url = "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/fonts/ttf/Vazirmatn-Bold.ttf"
+    
+    reg_dest = os.path.join(estedad_font_dir, "estedad_regular.ttf")
+    bold_dest = os.path.join(estedad_font_dir, "estedad_bold.ttf")
+    
+    if not os.path.exists(reg_dest):
+        download_file(reg_url, reg_dest)
+    if not os.path.exists(bold_dest):
+        download_file(bold_url, bold_dest)
+        
     # Clean old run if any
     if os.path.exists(target_dir):
         shutil.rmtree(target_dir)

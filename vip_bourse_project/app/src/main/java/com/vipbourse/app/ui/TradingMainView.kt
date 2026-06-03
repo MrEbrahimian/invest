@@ -353,6 +353,7 @@ fun VipDashboardScreen(
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val geminiCustomUrl by viewModel.geminiCustomUrl.collectAsState()
     val inflationRate by viewModel.inflationRate.collectAsState()
+    val inflationRatePointToPoint by viewModel.inflationRatePointToPoint.collectAsState()
     val bankIncomeRate by viewModel.bankIncomeRate.collectAsState()
     val smartAlertTarget by viewModel.smartAlertTarget.collectAsState()
     val notificationLog by viewModel.notificationLog.collectAsState()
@@ -360,6 +361,7 @@ fun VipDashboardScreen(
     var editedApiKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
     var editedCustomUrl by remember(geminiCustomUrl) { mutableStateOf(geminiCustomUrl) }
     var editedInflationRate by remember(inflationRate) { mutableStateOf(inflationRate.toString()) }
+    var editedInflationRatePointToPoint by remember(inflationRatePointToPoint) { mutableStateOf(inflationRatePointToPoint.toString()) }
     var editedBankIncomeRate by remember(bankIncomeRate) { mutableStateOf(bankIncomeRate.toString()) }
     var editedSmartAlertTarget by remember(smartAlertTarget) { mutableStateOf(smartAlertTarget.toString()) }
     var isSettingsExpanded by remember { mutableStateOf(false) }
@@ -651,7 +653,7 @@ fun VipDashboardScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "تورم بانک مرکزی / مرکز آمار ایران (٪):",
+                                    text = "تورم سالانه مرکز آمار (٪):",
                                     fontSize = 9.sp,
                                     color = SlateTextSecondary
                                 )
@@ -671,6 +673,33 @@ fun VipDashboardScreen(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
+                                    text = "تورم نقطه به نقطه کشور (٪):",
+                                    fontSize = 9.sp,
+                                    color = SlateTextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = editedInflationRatePointToPoint,
+                                    onValueChange = { editedInflationRatePointToPoint = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 1,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = BorderColor,
+                                        focusedBorderColor = GoldPrimary
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
                                     text = "سود معیار صندوق درآمد ثابت (٪):",
                                     fontSize = 9.sp,
                                     color = SlateTextSecondary
@@ -688,43 +717,44 @@ fun VipDashboardScreen(
                                     )
                                 )
                             }
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "حداقل بازده هدف خرید طلایی (٪):",
+                                    fontSize = 9.sp,
+                                    color = SlateTextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = editedSmartAlertTarget,
+                                    onValueChange = { editedSmartAlertTarget = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 1,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = BorderColor,
+                                        focusedBorderColor = GoldPrimary
+                                    )
+                                )
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = "آستانه تعریف خرید طلایی و ارسال نوتیفیکیشن مجمع (٪):",
-                            fontSize = 10.sp,
-                            color = SlateTextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        OutlinedTextField(
-                            value = editedSmartAlertTarget,
-                            onValueChange = { editedSmartAlertTarget = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            maxLines = 1,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = BorderColor,
-                                focusedBorderColor = GoldPrimary
-                            )
-                        )
 
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Button(
                             onClick = {
                                 val inflationVal = editedInflationRate.toFloatOrNull() ?: 38.8f
+                                val inflationP2PVal = editedInflationRatePointToPoint.toFloatOrNull() ?: 31.0f
                                 val bankVal = editedBankIncomeRate.toFloatOrNull() ?: 30.0f
                                 val targetVal = editedSmartAlertTarget.toFloatOrNull() ?: 35.0f
 
                                 viewModel.saveGeminiSettings(editedApiKey, editedCustomUrl)
-                                viewModel.saveMacroSettings(inflationVal, bankVal, targetVal)
+                                viewModel.saveMacroSettings(inflationVal, inflationP2PVal, bankVal, targetVal)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("ذخیره تنظیمات و بازنویسی محاسبات", fontSize = 11.sp, color = DarkBackground, fontWeight = FontWeight.Bold)
+                            Text("ذخیره تنظیمات و بازنویسی محاسبات VIP", fontSize = 11.sp, color = DarkBackground, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

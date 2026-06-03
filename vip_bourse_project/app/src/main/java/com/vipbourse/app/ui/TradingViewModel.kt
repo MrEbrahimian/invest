@@ -84,6 +84,9 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _inflationRate = MutableStateFlow(sharedPrefs.getFloat("inflation_rate", 38.8f))
     val inflationRate: StateFlow<Float> = _inflationRate.asStateFlow()
 
+    private val _inflationRatePointToPoint = MutableStateFlow(sharedPrefs.getFloat("inflation_rate_p2p", 31.0f))
+    val inflationRatePointToPoint: StateFlow<Float> = _inflationRatePointToPoint.asStateFlow()
+
     private val _bankIncomeRate = MutableStateFlow(sharedPrefs.getFloat("bank_income_rate", 30.0f))
     val bankIncomeRate: StateFlow<Float> = _bankIncomeRate.asStateFlow()
 
@@ -180,12 +183,14 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     /**
      * Saves macroeconomic configurations such as CBI inflation index or Bank Income Fund Rate
      */
-    fun saveMacroSettings(inflation: Float, bankRate: Float, targetYield: Float) {
+    fun saveMacroSettings(inflation: Float, inflationP2P: Float, bankRate: Float, targetYield: Float) {
         _inflationRate.value = inflation
+        _inflationRatePointToPoint.value = inflationP2P
         _bankIncomeRate.value = bankRate
         _smartAlertTarget.value = targetYield
         sharedPrefs.edit()
             .putFloat("inflation_rate", inflation)
+            .putFloat("inflation_rate_p2p", inflationP2P)
             .putFloat("bank_income_rate", bankRate)
             .putFloat("smart_alert_target", targetYield)
             .apply()
