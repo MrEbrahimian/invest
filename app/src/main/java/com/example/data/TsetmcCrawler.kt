@@ -211,19 +211,21 @@ object TsetmcCrawler {
             TickerDefinition("تجارت", "بانک تجارت", 1950L, 230, 8.47f, 35000000L, 68250000000L), // VIP Candidate
             TickerDefinition("کچاد", "معدنی صنعتی چادرملو", 14300L, 2200, 6.5f, 850000L, 12155000000L), // Volume too low (<1M)
             TickerDefinition("خگستر", "گسترش سرمایه‌گذاری ایران خودرو", 5100L, 380, 13.4f, 16000000L, 81600000000L), // P/E too high
-            TickerDefinition("شپدیس", "پتروشیمی پردیس", 172000L, 36000, 4.77f, 450000L, 77400000000L) // Volume too low (<1M)
+            TickerDefinition("شپدیس", "پتروشیمی پردیس (پیشرو شیمیایی)", 13210L, 2047, 6.46f, 1257712040L, 16506721000000L)
         )
 
         for (def in definitions) {
             val isFazar = def.symbol == "فزر"
             val isFmelli = def.symbol == "فملی"
             val isShepna = def.symbol == "شپنا"
+            val isShepdis = def.symbol == "شپدیس"
 
             // Apply small random fluctuations or exact live coordinates from EasyTrader and Codal
             val price = when {
                 isFazar -> 225450L
                 isFmelli -> 18500L
                 isShepna -> 6680L
+                isShepdis -> 13210L
                 else -> {
                     val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
                     def.basePrice + priceFluctuation
@@ -233,12 +235,14 @@ object TsetmcCrawler {
                 isFazar -> 219000L
                 isFmelli -> 17970L
                 isShepna -> 6490L
+                isShepdis -> 13610L
                 else -> def.basePrice
             }
             val changePercent = when {
                 isFazar -> 2.96f
                 isFmelli -> 2.95f
                 isShepna -> 2.93f
+                isShepdis -> -2.94f
                 else -> {
                     val diff = price - yesterdayPrice
                     (diff.toFloat() / yesterdayPrice) * 100f
@@ -249,6 +253,7 @@ object TsetmcCrawler {
                 isFazar -> 8298000L
                 isFmelli -> 1335289774L
                 isShepna -> 705380921L
+                isShepdis -> 1257712040L
                 else -> {
                     val volumeFluctuation = (def.baseVolume * (random.nextDouble(-0.2, 0.2))).toLong()
                     def.baseVolume + volumeFluctuation
@@ -258,6 +263,7 @@ object TsetmcCrawler {
                 isFazar -> 1039218000000L
                 isFmelli -> 1360915539000L
                 isShepna -> 4711945000000L
+                isShepdis -> 16506721000000L
                 else -> price * volume
             }
 
@@ -265,6 +271,7 @@ object TsetmcCrawler {
                 isFazar -> 16743
                 isFmelli -> 1023
                 isShepna -> 1152
+                isShepdis -> 2047
                 else -> def.baseEps
             }
             // Recalculating live P/E
@@ -272,6 +279,7 @@ object TsetmcCrawler {
                 isFazar -> 13.46f
                 isFmelli -> 18.07f
                 isShepna -> 5.8f
+                isShepdis -> 6.46f
                 else -> (if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe)
             }
 
@@ -279,6 +287,7 @@ object TsetmcCrawler {
                 isFazar -> 9250
                 isFmelli -> 370
                 isShepna -> 360
+                isShepdis -> 11000
                 else -> (if (eps > 0) (eps * 0.85).toInt() else 0)
             }
             val dpsYield = if (price > 0) (dps.toFloat() / price) * 100f else 0f
@@ -317,6 +326,7 @@ object TsetmcCrawler {
                 isFazar -> listOf(6700, 3600, 7220, 4700, 9250)
                 isFmelli -> listOf(280, 700, 480, 370, 370)
                 isShepna -> listOf(1200, 650, 900, 610, 360)
+                isShepdis -> listOf(13500, 23500, 27500, 37000, 11000)
                 else -> {
                     listOf(
                         (dps * 0.65).toInt(),
