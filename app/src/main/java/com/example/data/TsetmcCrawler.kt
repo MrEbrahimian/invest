@@ -198,7 +198,7 @@ object TsetmcCrawler {
 
         // 14 famous Iranian stock market symbols including user additions (فزر, بوعلی)
         val definitions = listOf(
-            TickerDefinition("فزر", "پویا زرکان آق دره (معادن طلای کشور)", 19500L, 4100, 4.75f, 6500000L, 126750000000L), // High Yield and Gold hedge
+            TickerDefinition("فزر", "پویا زرکان آق دره (معادن طلای کشور)", 225450L, 16743, 13.46f, 8298000L, 1039218000000L), // High Yield and Gold hedge
             TickerDefinition("بوعلی", "پتروشیمی بوعلی سینا (تقسیم بالا)", 112000L, 16500, 6.78f, 1800000L, 201600000000L), // High Yield petrochemical
             TickerDefinition("خودرو", "ایران‌ خودرو (لیدر خودرویی)", 3100L, 150, 20.6f, 45000000L, 139500000000L),
             TickerDefinition("خساپا", "سایپا", 2550L, -15, -16f, 32000000L, 81600000000L),   // Negative EPS
@@ -215,21 +215,30 @@ object TsetmcCrawler {
         )
 
         for (def in definitions) {
+            val isFazar = def.symbol == "فزر"
+
             // Apply small random fluctuations to simulate a real live feed
-            val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
-            val price = def.basePrice + priceFluctuation
-            val yesterdayPrice = def.basePrice
-            val changePercent = (priceFluctuation.toFloat() / yesterdayPrice) * 100f
+            val price = if (isFazar) 225450L else {
+                val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
+                def.basePrice + priceFluctuation
+            }
+            val yesterdayPrice = if (isFazar) 219000L else def.basePrice
+            val changePercent = if (isFazar) 2.96f else {
+                val diff = price - yesterdayPrice
+                (diff.toFloat() / yesterdayPrice) * 100f
+            }
 
-            val volumeFluctuation = (def.baseVolume * (random.nextDouble(-0.2, 0.2))).toLong()
-            val volume = def.baseVolume + volumeFluctuation
-            val value = price * volume
+            val volume = if (isFazar) 8298000L else {
+                val volumeFluctuation = (def.baseVolume * (random.nextDouble(-0.2, 0.2))).toLong()
+                def.baseVolume + volumeFluctuation
+            }
+            val value = if (isFazar) 1039218000000L else price * volume
 
-            val eps = def.baseEps
+            val eps = if (isFazar) 16743 else def.baseEps
             // Recalculating live P/E
-            val pe = if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe
+            val pe = if (isFazar) 13.46f else (if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe)
 
-            val dps = if (eps > 0) (eps * 0.85).toInt() else 0
+            val dps = if (isFazar) 9250 else (if (eps > 0) (eps * 0.85).toInt() else 0)
             val dpsYield = if (price > 0) (dps.toFloat() / price) * 100f else 0f
 
             // Let's calculate Growth Potential based on P/E ratio and general sector premium (realistic estimate)
@@ -262,13 +271,17 @@ object TsetmcCrawler {
             }
 
             // Generate past 5 years historical DPS in Rials based on the current estimated dps
-            val historicalDps = listOf(
-                (dps * 0.65).toInt(),
-                (dps * 0.78).toInt(),
-                (dps * 0.88).toInt(),
-                (dps * 0.82).toInt(),
-                dps
-            )
+            val historicalDps = if (isFazar) {
+                listOf(6700, 3600, 7220, 4700, 9250)
+            } else {
+                listOf(
+                    (dps * 0.65).toInt(),
+                    (dps * 0.78).toInt(),
+                    (dps * 0.88).toInt(),
+                    (dps * 0.82).toInt(),
+                    dps
+                )
+            }
 
             // Apply VIP criteria explicitly:
             // Volume > 1,000,000 (1 Million)

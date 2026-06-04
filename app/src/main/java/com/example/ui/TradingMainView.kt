@@ -3347,30 +3347,28 @@ fun generateStockPdfReport(context: android.content.Context, stock: StockSignal,
 
         // AI Analysis Report Row
         headingPaint.color = android.graphics.Color.rgb(180, 140, 40)
-        canvas.drawText("🤖 بیانیه و خلاصه تحلیل نهایی هوش مصنوعی (AI Deep Learning):", 35f, y, headingPaint)
+        canvas.drawText("🤖 کارت تصمیم یار هوش مصنوعی مجمع‌یاب (Quant Decision Card):", 35f, y, headingPaint)
         y += 20f
 
-        // Word Wrapping AI description safely
-        textPaint.textSize = 9.5f
-        textPaint.color = android.graphics.Color.rgb(60, 65, 75)
-        val cleanAiString = aiResult.replace("\n", " ").trim()
-        val words = cleanAiString.split(" ")
-        var lineBuilder = java.lang.StringBuilder()
-        
-        for (word in words) {
-            val prospectiveLine = lineBuilder.toString() + " " + word
-            if (textPaint.measureText(prospectiveLine) < 510) {
-                lineBuilder.append(" ").append(word)
-            } else {
-                canvas.drawText(lineBuilder.toString().trim(), 35f, y, textPaint)
-                lineBuilder = java.lang.StringBuilder(word)
-                y += 14f
-                if (y > 780) break // Safe boundary limit
-            }
+        // Draw AI description using standard StaticLayout supporting RTL/Persian shaping and newlines natively
+        val aiTextPaint = android.text.TextPaint().apply {
+            color = android.graphics.Color.rgb(40, 45, 55)
+            textSize = 9.5f
+            isAntiAlias = true
         }
-        if (lineBuilder.isNotEmpty() && y <= 780) {
-            canvas.drawText(lineBuilder.toString().trim(), 35f, y, textPaint)
-        }
+        val staticLayout = android.text.StaticLayout(
+            aiResult,
+            aiTextPaint,
+            515,
+            android.text.Layout.Alignment.ALIGN_NORMAL,
+            1.2f,
+            0.0f,
+            false
+        )
+        canvas.save()
+        canvas.translate(40f, y)
+        staticLayout.draw(canvas)
+        canvas.restore()
 
         // 4. Draw Footer Band
         canvas.drawRect(0f, 800f, 595f, 842f, headerPaint)

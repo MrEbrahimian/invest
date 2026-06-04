@@ -80,7 +80,9 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     val scrapingErrorMessage: StateFlow<String?> = _scrapingErrorMessage.asStateFlow()
 
     // AI Endpoint configs & real-time analytics
-    private val _geminiApiKey = MutableStateFlow(sharedPrefs.getString("gemini_api_key", "") ?: "")
+    private val _geminiApiKey = MutableStateFlow(
+        sharedPrefs.getString("gemini_api_key", "").takeIf { !it.isNullOrBlank() } ?: com.example.BuildConfig.GEMINI_API_KEY
+    )
     val geminiApiKey: StateFlow<String> = _geminiApiKey.asStateFlow()
 
     private val _geminiCustomUrl = MutableStateFlow(sharedPrefs.getString("gemini_custom_url", "https://generativelanguage.googleapis.com/") ?: "https://generativelanguage.googleapis.com/")
@@ -467,26 +469,60 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
             _aiAnalysisResult.value = _aiAnalysisResult.value + (symbol to "درحال اتصال به هاب هوش مصنوعی و پردازش تحلیل سهم... لطفاً صبور باشید...")
             try {
                 val prompt = """
-                    شما یک تحلیل‌گر خبره بازار بورس تهران (TSE VIP AI Assistant) هستید.
-                    لطفاً سهم "${stock.symbol}" را با اطلاعات زیر به صورت واقع‌بینانه و حرفه‌ای تحلیل کنید و تحلیل را با رویکرد سود مرکب مجمع نقدی و پتانسیل رشد سالیانه بررسی کنید:
-                    - صنف/صنعت: ${stock.sector}
-                    - قیمت پایانی: ${stock.price} ریال
-                    - حجم معاملات روز: ${stock.volume}
-                    - ارزش معاملات روز: ${stock.value} ریال
-                    - نسبت P/E مجمع: ${stock.pe}
-                    - سود پیش‌بینی شده (EPS): ${stock.eps} ریال
-                    - سود تقسیم شده مصوب (DPS): ${stock.dps} ریال
-                    - بازده نقدی مجمع: ${String.format(java.util.Locale.US, "%.2f", stock.dpsYield)}%
-                    - پتانسیل رشد قیمت: ${stock.growthPotential}%
-                    - پتانسیل کل بازدهی مجمع: ${String.format(java.util.Locale.US, "%.2f", stock.totalReturnPotential)}%
-                    - سطح ارزیابی: ${stock.dpsLevel}
-                    - تاریخ‌های مهم مجمع: ${stock.keyDateMilestones}
-                    - تاریخچه ۵ سال گذشته سود تقسیمی (ریال): ${stock.historicalDps.joinToString(" ، ")}
+                    You are a quantitative investment assistant specialized in Tehran Stock Exchange (TSE).
 
-                    پاسخ خود را به زبان شیرین فارسی، منظم با ایموجی‌های جذاب و به صورت فشرده (۳ الی ۴ پاراگراف اسکن‌شدنی) ارائه کنید:
-                    ۱. تحلیل ارزندگی نسبت به سود تضمینی بانکی ۲۲٪ و نرخ تورم نقطه به نقطه کشور (۳۸٪).
-                    ۲. آیا این سهم گزینه‌ای مطمئن برای ورود است یا با چالش تقسیم سود مواجه است؟
-                    ۳. پیش‌بینی زمان برگزاری مجمع و استراتژی ورود پیشنهادی.
+                    Your goal is NOT to give generic analysis. Your job is to generate a premium decision card that helps investors decide if a stock is undervalued, fairly valued, or risky.
+
+                    Use the available stock data to estimate valuation strength, dividend power, and risk signals.
+
+                    Your output MUST be written in Persian and follow this exact structure:
+
+                    --------------------------------------
+                    📊 کارت تصمیم‌گیری کوانت (Quant Decision Card)
+
+                    نماد: ${stock.symbol}
+                    قیمت فعلی: ${stock.price} ریال
+
+                    1️⃣ تخمین ارزش ذاتی (Intrinsic Value Estimate):
+                    [توضیح کوتاه و جذاب در مورد محدوده ارزش منصفانه بر اساس سود EPS به ریال و ارزشیابی بازار]
+
+                    2️⃣ عدم ارزش‌گذاری صحیح بازار (Market Mispricing):
+                    [توضیح کامل در مورد اینکه قیمت بازار پایین‌تر از ارزش ذاتی (Undervalued)، منصفانه (Fair) یا حباب قیمتی (Overvalued) است؛ همراه با درصد شکاف قیمتی فاحش]
+
+                    3️⃣ محدوده خرید پله‌ای هوشمند (Smart Accumulation Zone):
+                    [محدوده قیمتی دقیق مناسب برای انباشت و خرید پله‌ای مجمع مصلحت‌آمیز]
+
+                    4️⃣ آستانه خروج و حد مرزی ریسک (Risk Breakpoint):
+                    [سطح یا سیگنال قیمتی که در آن معامله‌گری سهم ریسک بالا و نامطلوب دارد]
+
+                    5️⃣ شاخص قدرت سود نقدی مجمع (0-10) (Dividend Power Index):
+                    [امتیازدهی به تداوم و تبلور تقسیم سود بر اساس تاریخچه سودهای قبلی مجمع سهم]
+
+                    6️⃣ میزان پوشش ریسک تورمی (Inflation Protection Level):
+                    [تحلیلی از اینکه بازده و سود تقسیمی مجمع چقدر دارایی را از گزند تورم ۳۸ درصدی حفظ می‌کند]
+
+                    7️⃣ درجه اطمینان مجمع‌شناختی (0-100%) (Quant Confidence):
+                    [درصد مدل ریاضی از سودآوری مطمئن و رفتار مثبت قیمت در ۳ تا ۶ ماه آینده]
+
+                    8️⃣ بینش استراتژیک نهایی (Strategic Insight):
+                    [یک خط دیدگاه نهایی معامله‌گری بسیار خلاصه، واضح و کاربردی - حداکثر ۳ جمله کوتاه جاندار]
+                    --------------------------------------
+
+                    Rules:
+                    - Be highly concise. No filler words or academic fluff. Total clarity over complexity.
+                    - Keep to exactly the listed 8 sections and use exact Persian headings above.
+                    - Persian language only. Do NOT use markdown backticks like ``` elsewhere, construct the lines clearly so it displays like a card.
+
+                    TSE Stock Data for calculations:
+                    Symbol: ${stock.symbol}
+                    Price: ${stock.price}
+                    EPS: ${stock.eps}
+                    P/E: ${stock.pe}
+                    Last DPS: ${stock.dps}
+                    Dividend history: ${stock.historicalDps.joinToString(", ")}
+                    Sector: ${stock.sector}
+                    Growth Potential: ${stock.growthPotential}%
+                    Total Expected Return: ${stock.totalReturnPotential}%
                 """.trimIndent()
 
                 val cleanPrompt = prompt.replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "")
@@ -591,6 +627,19 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                             sb.append('\t')
                             i++
                         } else if (next == 'r') {
+                            i++
+                        } else if (next == 'u' && i + 5 < json.length) {
+                            try {
+                                val hex = json.substring(i + 2, i + 6)
+                                val charCode = hex.toInt(16)
+                                sb.append(charCode.toChar())
+                                i += 5
+                            } catch (e: Exception) {
+                                sb.append('\\').append('u')
+                                i++
+                            }
+                        } else if (next == '\"') {
+                            sb.append('\"')
                             i++
                         } else {
                             sb.append('\\')
