@@ -22,7 +22,21 @@ data class StockSignal(
     val dpsLevel: String = "سطح ۱ - فقط سود نقدی", // Level 1 versus Level 2
     val keyDateMilestones: String = "خرداد تا مرداد ← اوج مجامع نقدی", // Assembly months for Iran stocks
     val historicalDps: List<Int> = listOf(200, 250, 280, 210, 350), // last 5 years dividends in Rials
-    val paymentDelayMonths: Int = 4 // Assembly payoff limit in months (e.g. 1 to 4 months)
+    val paymentDelayMonths: Int = 4, // Assembly payoff limit in months (e.g. 1 to 4 months)
+    val masterScore: Float = 65f, // Composite Master score (0-100)
+    val inflationHedgeRating: Int = 3, // Rating level from 1 to 5
+    val dividendCountdownText: String = "۳۰ روز تا واریز نقدی", // Countdown statement (Days remaining or predicted payment schedule)
+    
+    // --- PART 3 & PART 4 - Quant Audit & Data validation additions ---
+    val rawPrice: Long = price,
+    val rawEps: Int = eps,
+    val manualPe: Float = pe,
+    val isAuditSuspended: Boolean = false,
+    val needsAuditReview: Boolean = false,
+    val auditStatusColor: String = "Green", // "Green", "Yellow", "Red"
+    val auditMessage: String = "اطلاعات مالی معتبر",
+    val differencePercent: Float = 0f,
+    val lastCodalSyncTime: Long = System.currentTimeMillis()
 ) : Serializable {
     val priceInToman: Long get() = price / 10
     val valueInToman: Long get() = value / 10

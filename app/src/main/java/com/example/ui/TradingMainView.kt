@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import com.example.data.StockSignal
 import com.example.ui.theme.*
 import java.text.NumberFormat
@@ -387,6 +389,13 @@ fun VipDashboardScreen(
     var editedBankIncomeRate by remember(bankIncomeRate) { mutableStateOf(bankIncomeRate.toString()) }
     var editedSmartAlertTarget by remember(smartAlertTarget) { mutableStateOf(smartAlertTarget.toString()) }
     var isSettingsExpanded by remember { mutableStateOf(false) }
+    var showQuantAuditDialog by remember { mutableStateOf(false) }
+
+    if (showQuantAuditDialog) {
+        QuantAuditDebugDialog(viewModel = viewModel) {
+            showQuantAuditDialog = false
+        }
+    }
 
     var showVipOnly by remember { mutableStateOf(true) }
     var selectedMaxPayoutDelayMonths by remember { mutableStateOf(4) }
@@ -499,7 +508,14 @@ fun VipDashboardScreen(
                             Box(
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .background(goldAccent.copy(alpha = 0.15f), RoundedCornerShape(10.dp)),
+                                    .background(goldAccent.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onLongPress = {
+                                                showQuantAuditDialog = true
+                                            }
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -2149,6 +2165,151 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                         color = textPrimary,
                         modifier = Modifier.padding(top = 2.dp)
                     )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // --- 🌟 Premium Quant Insight Card 🌟 ---
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF1B2232) else Color(0xFFFAF7F2)),
+                        border = BorderStroke(1.dp, goldClr.copy(alpha = 0.35f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Analytics,
+                                    contentDescription = null,
+                                    tint = goldClr,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "جعبه ابزار کوانت تخصصی TSE (سنجش لایسنس VIP)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 1. Circular Gauge for Master Score
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.size(64.dp)
+                                    ) {
+                                        CircularProgressIndicator(
+                                            progress = 1f,
+                                            strokeWidth = 6.dp,
+                                            color = dividerColor.copy(alpha = 0.5f)
+                                        )
+                                        CircularProgressIndicator(
+                                            progress = stock.masterScore / 100f,
+                                            strokeWidth = 6.dp,
+                                            color = goldClr
+                                        )
+                                        Text(
+                                            text = "${stock.masterScore.toInt()}",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = textPrimary
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "شاخص کل کوانت (Master)",
+                                        fontSize = 9.sp,
+                                        color = textMuted,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                                
+                                // 2. Shield Icons representing Inflation Hedge Rating
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.weight(1.3f)
+                                ) {
+                                    Row(horizontalArrangement = Arrangement.Center) {
+                                        for (i in 1..5) {
+                                            Icon(
+                                                imageVector = Icons.Default.Shield,
+                                                contentDescription = null,
+                                                tint = if (i <= stock.inflationHedgeRating) goldClr else dividerColor.copy(alpha = 0.3f),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    val shieldLabel = when (stock.inflationHedgeRating) {
+                                        5 -> "سطح ۵: عایق ضد تورم کامل 🛡️"
+                                        4 -> "سطح ۴: سپر تورمی ویژه"
+                                        else -> "سطح ۳: بهینه‌سازی تورمی متوازن"
+                                    }
+                                    Text(
+                                        text = shieldLabel,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Text(
+                                        text = "امتیاز عایق تورم (IHS)",
+                                        fontSize = 8.sp,
+                                        color = textMuted,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Divider(color = dividerColor.copy(alpha = 0.3f), thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            // 3. Dividend Countdown section
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HourglassBottom,
+                                    contentDescription = null,
+                                    tint = goldClr,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "سرعت پرداخت نقدی مصوب کدال (سجام/پایا):",
+                                        fontSize = 10.sp,
+                                        color = textMuted
+                                    )
+                                    Text(
+                                        text = stock.dividendCountdownText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 

@@ -5,9 +5,22 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CustomStockDps::class], version = 1, exportSchema = false)
+@Database(
+    entities = [
+        CustomStockDps::class,
+        SymbolEntity::class,
+        AdjustedPriceEntity::class,
+        DividendEntity::class,
+        CorporateActionEntity::class,
+        QuantMetricsEntity::class,
+        DiscrepancyLogEntity::class
+    ],
+    version = 3,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun customStockDpsDao(): CustomStockDpsDao
+    abstract fun quantDao(): QuantDao
 
     companion object {
         @Volatile
