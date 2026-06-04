@@ -204,10 +204,10 @@ object TsetmcCrawler {
             TickerDefinition("خساپا", "سایپا", 2550L, -15, -16f, 32000000L, 81600000000L),   // Negative EPS
             TickerDefinition("شتران", "پالایش نفت تهران", 3850L, 620, 6.2f, 15000000L, 57750000000L), // VIP Candidate
             TickerDefinition("فولاد", "فولاد مبارکه اصفهان", 5600L, 910, 6.15f, 18000000L, 100800000000L), // VIP Candidate
-            TickerDefinition("فملی", "ملی صنایع مس ایران", 7800L, 1250, 6.24f, 12000000L, 93600000000L),  // VIP Candidate
+            TickerDefinition("فملی", "ملی صنایع مس ایران (مس فلز اساسی)", 18500L, 1023, 18.07f, 1335289774L, 1360915539000L),  // From EasyTrader Real Live Data screenshot
             TickerDefinition("شستا", "سرمایه‌گذاری تأمین اجتماعی", 1320L, 230, 5.73f, 110000000L, 145200000000L), // VIP Candidate
             TickerDefinition("وبصادر", "بانک صادرات ایران", 1880L, 140, 13.42f, 25000000L, 47000000000L), // P/E too high
-            TickerDefinition("شپنا", "پالایش نفت اصفهان", 4550L, 680, 6.69f, 22000000L, 100100000000L), // VIP Candidate
+            TickerDefinition("شپنا", "پالایش نفت اصفهان (لیدر پالایشی)", 6680L, 1152, 5.8f, 705380921L, 4711945000000L), // VIP Candidate from EasyTrader Real Live Data screenshot
             TickerDefinition("تجارت", "بانک تجارت", 1950L, 230, 8.47f, 35000000L, 68250000000L), // VIP Candidate
             TickerDefinition("کچاد", "معدنی صنعتی چادرملو", 14300L, 2200, 6.5f, 850000L, 12155000000L), // Volume too low (<1M)
             TickerDefinition("خگستر", "گسترش سرمایه‌گذاری ایران خودرو", 5100L, 380, 13.4f, 16000000L, 81600000000L), // P/E too high
@@ -216,29 +216,71 @@ object TsetmcCrawler {
 
         for (def in definitions) {
             val isFazar = def.symbol == "فزر"
+            val isFmelli = def.symbol == "فملی"
+            val isShepna = def.symbol == "شپنا"
 
-            // Apply small random fluctuations to simulate a real live feed
-            val price = if (isFazar) 225450L else {
-                val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
-                def.basePrice + priceFluctuation
+            // Apply small random fluctuations or exact live coordinates from EasyTrader and Codal
+            val price = when {
+                isFazar -> 225450L
+                isFmelli -> 18500L
+                isShepna -> 6680L
+                else -> {
+                    val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
+                    def.basePrice + priceFluctuation
+                }
             }
-            val yesterdayPrice = if (isFazar) 219000L else def.basePrice
-            val changePercent = if (isFazar) 2.96f else {
-                val diff = price - yesterdayPrice
-                (diff.toFloat() / yesterdayPrice) * 100f
+            val yesterdayPrice = when {
+                isFazar -> 219000L
+                isFmelli -> 17970L
+                isShepna -> 6490L
+                else -> def.basePrice
+            }
+            val changePercent = when {
+                isFazar -> 2.96f
+                isFmelli -> 2.95f
+                isShepna -> 2.93f
+                else -> {
+                    val diff = price - yesterdayPrice
+                    (diff.toFloat() / yesterdayPrice) * 100f
+                }
             }
 
-            val volume = if (isFazar) 8298000L else {
-                val volumeFluctuation = (def.baseVolume * (random.nextDouble(-0.2, 0.2))).toLong()
-                def.baseVolume + volumeFluctuation
+            val volume = when {
+                isFazar -> 8298000L
+                isFmelli -> 1335289774L
+                isShepna -> 705380921L
+                else -> {
+                    val volumeFluctuation = (def.baseVolume * (random.nextDouble(-0.2, 0.2))).toLong()
+                    def.baseVolume + volumeFluctuation
+                }
             }
-            val value = if (isFazar) 1039218000000L else price * volume
+            val value = when {
+                isFazar -> 1039218000000L
+                isFmelli -> 1360915539000L
+                isShepna -> 4711945000000L
+                else -> price * volume
+            }
 
-            val eps = if (isFazar) 16743 else def.baseEps
+            val eps = when {
+                isFazar -> 16743
+                isFmelli -> 1023
+                isShepna -> 1152
+                else -> def.baseEps
+            }
             // Recalculating live P/E
-            val pe = if (isFazar) 13.46f else (if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe)
+            val pe = when {
+                isFazar -> 13.46f
+                isFmelli -> 18.07f
+                isShepna -> 5.8f
+                else -> (if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe)
+            }
 
-            val dps = if (isFazar) 9250 else (if (eps > 0) (eps * 0.85).toInt() else 0)
+            val dps = when {
+                isFazar -> 9250
+                isFmelli -> 370
+                isShepna -> 360
+                else -> (if (eps > 0) (eps * 0.85).toInt() else 0)
+            }
             val dpsYield = if (price > 0) (dps.toFloat() / price) * 100f else 0f
 
             // Let's calculate Growth Potential based on P/E ratio and general sector premium (realistic estimate)
@@ -271,16 +313,19 @@ object TsetmcCrawler {
             }
 
             // Generate past 5 years historical DPS in Rials based on the current estimated dps
-            val historicalDps = if (isFazar) {
-                listOf(6700, 3600, 7220, 4700, 9250)
-            } else {
-                listOf(
-                    (dps * 0.65).toInt(),
-                    (dps * 0.78).toInt(),
-                    (dps * 0.88).toInt(),
-                    (dps * 0.82).toInt(),
-                    dps
-                )
+            val historicalDps = when {
+                isFazar -> listOf(6700, 3600, 7220, 4700, 9250)
+                isFmelli -> listOf(280, 700, 480, 370, 370)
+                isShepna -> listOf(1200, 650, 900, 610, 360)
+                else -> {
+                    listOf(
+                        (dps * 0.65).toInt(),
+                        (dps * 0.78).toInt(),
+                        (dps * 0.88).toInt(),
+                        (dps * 0.82).toInt(),
+                        dps
+                    )
+                }
             }
 
             // Apply VIP criteria explicitly:

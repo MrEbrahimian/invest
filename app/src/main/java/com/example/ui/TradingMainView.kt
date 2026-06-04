@@ -929,7 +929,7 @@ fun VipDashboardScreen(
                                             val threshold = smartAlertTarget
                                             val highYieldStocks = allStocks.filter { it.totalReturnPotential >= threshold }
                                             if (highYieldStocks.isNotEmpty()) {
-                                                highYieldStocks.take(2).forEach { item ->
+                                                highYieldStocks.take(1).forEach { item ->
                                                     viewModel.triggerLocalNotification(item.symbol, item.totalReturnPotential)
                                                 }
                                             } else {
