@@ -1151,6 +1151,8 @@ fun VipDashboardScreen(
                     // TAB 2: INVEST & SCREENING PANEL
                     if (currentTab == 2) {
                         item {
+                            val selectedFormula by viewModel.selectedFormula.collectAsState()
+
                             // Quick Stats Overview Cards
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
@@ -1178,7 +1180,6 @@ fun VipDashboardScreen(
                                 colors = CardDefaults.cardColors(containerColor = surfaceCol),
                                 border = BorderStroke(1.dp, borderCol)
                             ) {
-                                val selectedFormula by viewModel.selectedFormula.collectAsState()
 
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Text(
@@ -1344,13 +1345,30 @@ fun VipDashboardScreen(
                                 colors = CardDefaults.cardColors(containerColor = surfaceCol),
                                 border = BorderStroke(1.dp, borderCol)
                             ) {
+                                val (recDps, recGrowth) = when (selectedFormula) {
+                                    "DIVIDEND" -> Pair(16.0f, 4.0f)
+                                    "HEDGE" -> Pair(1.0f, 22.0f)
+                                    "DEFENSIVE" -> Pair(14.0f, 8.0f)
+                                    "BEAT_INFLATION" -> Pair(10.0f, 28.0f)
+                                    else -> Pair(12.0f, 15.0f)
+                                }
+                                val isCustomized = (tempDps != recDps || tempGrowth != recGrowth)
+                                val presetName = when (selectedFormula) {
+                                    "ALL" -> "جامع مرجع"
+                                    "DIVIDEND" -> "سود نقدی طلایی"
+                                    "HEDGE" -> "طلا و عایق تورمی"
+                                    "DEFENSIVE" -> "حاشیه امنیت"
+                                    "BEAT_INFLATION" -> "برنده تورم"
+                                    else -> "نامشخص"
+                                }
+
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                             Icon(
                                                 imageVector = Icons.Default.Tune,
                                                 contentDescription = null,
@@ -1358,12 +1376,21 @@ fun VipDashboardScreen(
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "تنظیم دلخواه سود سالانه و رشد سهام (شخصی‌سازی)",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = textCol
-                                            )
+                                            Column {
+                                                Text(
+                                                    text = "تنظیم دلخواه سود سالانه و رشد سهام (شخصی‌سازی)",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = textCol
+                                                )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = if (isCustomized) "✏️ شخصی‌سازی شده مستقل روی فرضیات ($presetName)" else "🔒 همگام با فرمول فعال: $presetName",
+                                                    fontSize = 9.sp,
+                                                    color = if (isCustomized) goldSecondaryAccent else StockGreen,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
                                         }
                                         if (hiddenSignals.isNotEmpty()) {
                                             Box(
@@ -1372,7 +1399,7 @@ fun VipDashboardScreen(
                                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                                             ) {
                                                 Text(
-                                                    text = "${hiddenSignals.size} سهم مخفی شد (خارج از فیلترهای شما)",
+                                                    text = "${hiddenSignals.size} سهم فیلتر شد",
                                                     fontSize = 8.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = goldAccent
@@ -1483,6 +1510,107 @@ fun VipDashboardScreen(
                                     )
 
                                     Spacer(modifier = Modifier.height(14.dp))
+                                    HorizontalDivider(color = borderCol.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // 🌟 ماشین‌حساب آینده‌پژوهی و تصویرسازی قدرت اثر مرکب
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(goldSecondaryAccent.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                            .border(1.dp, goldSecondaryAccent.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                            .padding(12.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.AutoAwesome,
+                                                contentDescription = null,
+                                                tint = goldSecondaryAccent,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Text(
+                                                text = "شبیه‌ساز اثر مرکب بلندمدت هم‌سویی سود و رشد",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = goldSecondaryAccent
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "سود نقدی بالا عالی است، اما سرمایه‌گذاری دوباره آن در بازوی افزایش ارزش و رشد بنیادی شرکت‌هاست که دارایی شما را در بلندمدت بیمه می‌کند. با تنظیمات فعلی شما (سود نقدی ${String.format(Locale.US, "%.1f", tempDps)}٪ و نرخ رشد ${String.format(Locale.US, "%.1f", tempGrowth)}٪):",
+                                            fontSize = 9.5.sp,
+                                            color = textCol,
+                                            lineHeight = 15.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        val totalAnnualRate = (tempDps + tempGrowth) / 100f
+                                        val multiplier = Math.pow((1f + totalAnnualRate).toDouble(), 5.0).toFloat()
+                                        val initialMoney = 100 // Million Tomans
+                                        val finalMoneyValue = initialMoney * multiplier
+                                        val bankMultiplier = Math.pow(1.30, 5.0).toFloat() // 30% fixed income bank yield
+                                        val finalBankValue = initialMoney * bankMultiplier
+                                        val diffPower = finalMoneyValue - finalBankValue
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "رشد فرضی ۱۰۰ میلیون تومان شما پس از ۵ سال با این فیلتر:",
+                                                fontSize = 9.5.sp,
+                                                color = mutedCol
+                                            )
+                                            Text(
+                                                text = "${String.format(Locale.US, "%.1f", finalMoneyValue)} میلیون تومان",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = StockGreen
+                                            )
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "در مقایسه با سپرده ثابت بانکی (۳۰٪ سالانه):",
+                                                fontSize = 9.5.sp,
+                                                color = mutedCol
+                                            )
+                                            Text(
+                                                text = "${String.format(Locale.US, "%.1f", finalBankValue)} میلیون تومان",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = mutedCol
+                                            )
+                                        }
+
+                                        if (diffPower > 0) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "🚀 برتری مجمع‌شناختی: انتخاب هوشمندانه شما ثروتتان را ${String.format(Locale.US, "%.1f", diffPower)} میلیون تومان جلوتر از بهره بانکی قرار می‌دهد و اثرات تخریبی تورم را کاملاً مهار می‌کند!",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = goldAccent,
+                                                lineHeight = 14.sp
+                                            )
+                                        } else {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "⚠️ راهنمای فرار عالی از تورم بورس: برای کسب نتایجی بزرگتر از سود سپرده‌های متعارف بانکی و جبران کامل تورم سالانه، سعی کنید جمع مجموع اهرم رشد قیمت و بازده نقدی را کمی بالاتر هم ببرید.",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = StockRed,
+                                                lineHeight = 14.sp
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
                                     HorizontalDivider(color = borderCol.copy(alpha = 0.5f), thickness = 1.dp)
                                     Spacer(modifier = Modifier.height(10.dp))
 

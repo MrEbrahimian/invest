@@ -243,10 +243,24 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Set selected investment formula
+     * Set selected investment formula and synchronize sliders to preset values
      */
     fun setInvestmentFormula(formula: String) {
         _selectedFormula.value = formula
+        val (recommendedDps, recommendedGrowth) = when (formula) {
+            "DIVIDEND" -> Pair(16.0f, 4.0f)
+            "HEDGE" -> Pair(1.0f, 22.0f)
+            "DEFENSIVE" -> Pair(14.0f, 8.0f)
+            "BEAT_INFLATION" -> Pair(10.0f, 28.0f)
+            else -> Pair(12.0f, 15.0f) // ALL or customized
+        }
+        _minDpsYieldTarget.value = recommendedDps
+        _minGrowthTarget.value = recommendedGrowth
+        sharedPrefs.edit()
+            .putFloat("min_dps_yield_target", recommendedDps)
+            .putFloat("min_growth_target", recommendedGrowth)
+            .apply()
+
         fetchMarketData()
     }
 
@@ -923,17 +937,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
 
                 // Filter elements dynamically using user slider preferences
                 val formulaFiltered = formulaBaseList.filter { stock ->
-                    val passesDps = when (_selectedFormula.value) {
-                        "HEDGE" -> true
-                        "DEFENSIVE" -> true
-                        else -> stock.dpsYield >= dpsTarget
-                    }
-                    val passesGrowth = when (_selectedFormula.value) {
-                        "DIVIDEND" -> true
-                        "DEFENSIVE" -> true
-                        else -> stock.growthPotential >= growthTarget
-                    }
-                    passesDps && passesGrowth
+                    stock.dpsYield >= dpsTarget && stock.growthPotential >= growthTarget
                 }
 
                 _vipSignals.value = formulaFiltered
