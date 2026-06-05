@@ -25,6 +25,12 @@
 
     <!-- PERFECTLY ALIGNED HIGH-PRESTIGE SPROUTING WEALTH SAC (outline illustration with premium flow gradient) -->
 
+    <group
+        android:scaleX="0.75"
+        android:scaleY="0.75"
+        android:pivotX="54.0"
+        android:pivotY="54.0">
+
     <!-- 1. LEFT SPROUT LEAF -->
     <path
         android:strokeWidth="3.6"
@@ -192,5 +198,7 @@
             </gradient>
         </aapt:attr>
     </path>
+
+    </group>
 
 </vector>

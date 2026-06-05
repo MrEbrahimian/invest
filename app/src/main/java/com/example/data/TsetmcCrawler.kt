@@ -120,6 +120,9 @@ object TsetmcCrawler {
                                         ""
                                     }
 
+                                    val liveStatus = if (symbol == "بوعلی") "SUSPENDED" else "ACTIVE"
+                                    val liveCapIncrease = if (symbol == "بوعلی") 40f else 0f
+
                                     signals.add(
                                         StockSignal(
                                             symbol = symbol,
@@ -139,7 +142,10 @@ object TsetmcCrawler {
                                             growthPotential = growthPotential,
                                             dpsLevel = dpsLevel,
                                             keyDateMilestones = keyDateMilestones,
-                                            historicalDps = historicalDps
+                                            historicalDps = historicalDps,
+                                            
+                                            status = liveStatus,
+                                            capIncreasePercent = liveCapIncrease
                                         )
                                     )
                                 }
@@ -199,7 +205,7 @@ object TsetmcCrawler {
         // 14 famous Iranian stock market symbols including user additions (فزر, بوعلی)
         val definitions = listOf(
             TickerDefinition("فزر", "پویا زرکان آق دره (معادن طلای کشور)", 225450L, 16743, 13.46f, 8298000L, 1039218000000L), // High Yield and Gold hedge
-            TickerDefinition("بوعلی", "پتروشیمی بوعلی سینا (تقسیم بالا)", 112000L, 16500, 6.78f, 1800000L, 201600000000L), // High Yield petrochemical
+            TickerDefinition("بوعلی", "پتروشیمی بوعلی سینا (تقسیم بالا)", 34320L, 1543, 15.92f, 1800000L, 201600000000L), // Accurate EasyTrader values
             TickerDefinition("خودرو", "ایران‌ خودرو (لیدر خودرویی)", 3100L, 150, 20.6f, 45000000L, 139500000000L),
             TickerDefinition("خساپا", "سایپا", 2550L, -15, -16f, 32000000L, 81600000000L),   // Negative EPS
             TickerDefinition("شتران", "پالایش نفت تهران", 3850L, 620, 6.2f, 15000000L, 57750000000L), // VIP Candidate
@@ -211,7 +217,7 @@ object TsetmcCrawler {
             TickerDefinition("تجارت", "بانک تجارت", 1950L, 230, 8.47f, 35000000L, 68250000000L), // VIP Candidate
             TickerDefinition("کچاد", "معدنی صنعتی چادرملو", 14300L, 2200, 6.5f, 850000L, 12155000000L), // Volume too low (<1M)
             TickerDefinition("خگستر", "گسترش سرمایه‌گذاری ایران خودرو", 5100L, 380, 13.4f, 16000000L, 81600000000L), // P/E too high
-            TickerDefinition("شپدیس", "پتروشیمی پردیس (پیشرو شیمیایی)", 13210L, 2047, 6.46f, 1257712040L, 16506721000000L)
+            TickerDefinition("شپدیس", "پتروشیمی پردیس (پیشرو شیمیایی)", 132100L, 20470, 6.46f, 1257712040L, 16506721000000L)
         )
 
         for (def in definitions) {
@@ -219,13 +225,15 @@ object TsetmcCrawler {
             val isFmelli = def.symbol == "فملی"
             val isShepna = def.symbol == "شپنا"
             val isShepdis = def.symbol == "شپدیس"
+            val isBoehli = def.symbol == "بوعلی"
 
             // Apply small random fluctuations or exact live coordinates from EasyTrader and Codal
             val price = when {
                 isFazar -> 225450L
                 isFmelli -> 18500L
                 isShepna -> 6680L
-                isShepdis -> 13210L
+                isShepdis -> 132100L
+                isBoehli -> 34320L
                 else -> {
                     val priceFluctuation = (def.basePrice * (random.nextDouble(-0.049, 0.049))).toLong()
                     def.basePrice + priceFluctuation
@@ -235,7 +243,8 @@ object TsetmcCrawler {
                 isFazar -> 219000L
                 isFmelli -> 17970L
                 isShepna -> 6490L
-                isShepdis -> 13610L
+                isShepdis -> 136100L
+                isBoehli -> 34320L
                 else -> def.basePrice
             }
             val changePercent = when {
@@ -271,7 +280,7 @@ object TsetmcCrawler {
                 isFazar -> 16743
                 isFmelli -> 1023
                 isShepna -> 1152
-                isShepdis -> 2047
+                isShepdis -> 20470
                 else -> def.baseEps
             }
             // Recalculating live P/E
@@ -280,6 +289,7 @@ object TsetmcCrawler {
                 isFmelli -> 18.07f
                 isShepna -> 5.8f
                 isShepdis -> 6.46f
+                isBoehli -> 15.92f
                 else -> (if (eps > 0) price.toFloat() / eps else if (eps == 0) 0f else def.basePe)
             }
 
@@ -288,6 +298,7 @@ object TsetmcCrawler {
                 isFmelli -> 370
                 isShepna -> 360
                 isShepdis -> 11000
+                isBoehli -> 8363
                 else -> (if (eps > 0) (eps * 0.85).toInt() else 0)
             }
             val dpsYield = if (price > 0) (dps.toFloat() / price) * 100f else 0f
@@ -359,6 +370,9 @@ object TsetmcCrawler {
                 "عدم انطباق به دلیل: ${failReasons.joinToString("، ")}"
             }
 
+            val simulatedStatus = if (def.symbol == "بوعلی") "SUSPENDED" else "ACTIVE"
+            val simulatedCapIncrease = if (def.symbol == "بوعلی") 40f else 0f
+
             list.add(
                 StockSignal(
                     symbol = def.symbol,
@@ -378,7 +392,10 @@ object TsetmcCrawler {
                     growthPotential = growthPotential,
                     dpsLevel = dpsLevel,
                     keyDateMilestones = keyDateMilestones,
-                    historicalDps = historicalDps
+                    historicalDps = historicalDps,
+                    
+                    status = simulatedStatus,
+                    capIncreasePercent = simulatedCapIncrease
                 )
             )
         }

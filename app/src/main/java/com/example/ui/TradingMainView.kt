@@ -2404,7 +2404,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
             // Fundamental Stock parameters grid
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("قیمت پایانی", fontSize = 10.sp, color = textMuted)
+                    Text(stock.priceLabel, fontSize = 10.sp, color = textMuted)
                     Text("$formattedPrice ریال", fontSize = 12.sp, color = textPrimary, fontWeight = FontWeight.Bold)
                     Text("$formattedToman تومان", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Medium)
                 }
@@ -2416,7 +2416,33 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                 Column(modifier = Modifier.weight(1f)) {
                     Text("ارزش معاملات", fontSize = 10.sp, color = textMuted)
                     Text("$formattedValueToman ت", fontSize = 12.sp, color = textPrimary, fontWeight = FontWeight.Bold)
-                    Text("EPS: ${stock.eps}", fontSize = 11.sp, color = textMuted)
+                    Text("${stock.displayEpsLabel}: ${stock.eps}", fontSize = 10.sp, color = textMuted)
+                }
+            }
+
+            if (stock.warning.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFF9800).copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                        .border(1.dp, Color(0xFFFF9800).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stock.warning,
+                        fontSize = 11.sp,
+                        color = Color(0xFFFF9800),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -2440,7 +2466,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "پیش‌بینی سود نقدی سهم (DPS):",
+                        text = "پیش‌بینی سود نقدی (${stock.dpsSource}):",
                         fontSize = 11.sp,
                         color = textMuted
                     )
@@ -3407,25 +3433,54 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                         }
                                     }
 
-                                    Button(
-                                        onClick = onShowGuide,
-                                        colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.12f)),
-                                        border = BorderStroke(1.dp, goldClr),
-                                        modifier = Modifier.weight(1.1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    val containsError = currentAiResult.contains("❌") || currentAiResult.contains("خطا")
+                                    if (containsError) {
+                                        Button(
+                                            onClick = { viewModel.analyzeStockWithAI(stock.symbol, stock) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                            modifier = Modifier.weight(1.1f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.HelpOutline,
-                                                contentDescription = "راهنمای قدم به قدم",
-                                                tint = goldClr,
-                                                modifier = Modifier.size(12.dp)
-                                             )
-                                             Text("پوشه راهنما", fontSize = 9.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                if (currentAiLoading) {
+                                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.error, modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Refresh,
+                                                        contentDescription = "تلاش مجدد",
+                                                        tint = MaterialTheme.colorScheme.error,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                                Text("تلاش مجدد", fontSize = 9.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = onShowGuide,
+                                            colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.12f)),
+                                            border = BorderStroke(1.dp, goldClr),
+                                            modifier = Modifier.weight(1.1f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.HelpOutline,
+                                                    contentDescription = "راهنمای قدم به قدم",
+                                                    tint = goldClr,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Text("پوشه راهنما", fontSize = 9.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                            }
                                         }
                                     }
                                 }

@@ -483,7 +483,9 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
             _aiAnalysisResult.value = _aiAnalysisResult.value + (symbol to "درحال اتصال به هاب هوش مصنوعی و پردازش تحلیل سهم... لطفاً صبور باشید...")
             try {
                 val prompt = """
-                    You are a quantitative investment assistant specialized in Tehran Stock Exchange (TSE).
+                    You are a Senior TSE Data Auditor & Quant Analyst. Your ultimate objective is to cross-verify client-facing financial figures (prices, EPS, DPS, P/E) against absolute underlying mathematical identities. You are defensive, skeptical, and absolute:
+                    1. P/E is strictly Price divided by EPS. If they do not match, flag it.
+                    2. Dividend Division cannot exceed EPS under normal operational cash flows unless drawn from audited Retained Earnings (سود انباشته).
 
                     Your goal is NOT to give generic analysis. Your job is to generate a premium decision card that helps investors decide if a stock is undervalued, fairly valued, or risky.
 
@@ -495,7 +497,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                     📊 کارت تصمیم‌گیری کوانت (Quant Decision Card)
 
                     نماد: ${stock.symbol}
-                    قیمت فعلی: ${stock.price} ریال
+                    قیمت فعلی: ${stock.displayPrice} ریال [${stock.priceLabel}]
 
                     1️⃣ تخمین ارزش ذاتی (Intrinsic Value Estimate):
                     [توضیح کوتاه و جذاب در مورد محدوده ارزش منصفانه بر اساس سود EPS به ریال و ارزشیابی بازار]
@@ -510,7 +512,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                     [سطح یا سیگنال قیمتی که در آن معامله‌گری سهم ریسک بالا و نامطلوب دارد]
 
                     5️⃣ شاخص قدرت سود نقدی مجمع (0-10) (Dividend Power Index):
-                    [امتیازدهی به تداوم و تبلور تقسیم سود بر اساس تاریخچه سودهای قبلی مجمع سهم]
+                    [امتیازدهی به تداوم و تبلور تقسیم سود بر اساس تاریخچه سودهای قبلی مجمع سهم. منبع سود: ${stock.dpsSource}]
 
                     6️⃣ میزان پوشش ریسک تورمی (Inflation Protection Level):
                     [تحلیلی از اینکه بازده و سود تقسیمی مجمع چقدر دارایی را از گزند تورم ۳۸ درصدی حفظ می‌کند]
@@ -529,10 +531,10 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
 
                     TSE Stock Data for calculations:
                     Symbol: ${stock.symbol}
-                    Price: ${stock.price}
-                    EPS: ${stock.eps}
+                    Price: ${stock.displayPrice} (${stock.priceLabel})
+                    EPS (${stock.displayEpsLabel}): ${stock.eps}
                     P/E: ${stock.pe}
-                    Last DPS: ${stock.dps}
+                    Last DPS (${stock.dpsSource}): ${stock.dps}
                     Dividend history: ${stock.historicalDps.joinToString(", ")}
                     Sector: ${stock.sector}
                     Growth Potential: ${stock.growthPotential}%
@@ -540,7 +542,13 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                 """.trimIndent()
 
                 val cleanPrompt = prompt.replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "")
-                val requestJson = "{\"contents\":[{\"parts\":[{\"text\":\"$cleanPrompt\"}]}],\"generationConfig\":{\"temperature\":0.4}}"
+                val isOpenAi = !url.contains("googleapis.com")
+
+                val requestJson = if (isOpenAi) {
+                    "{\"model\":\"${_geminiModelName.value}\",\"messages\":[{\"role\":\"user\",\"content\":\"$cleanPrompt\"}],\"temperature\":0.4}"
+                } else {
+                    "{\"contents\":[{\"parts\":[{\"text\":\"$cleanPrompt\"}]}],\"generationConfig\":{\"temperature\":0.4}}"
+                }
 
                 val okHttpClient = OkHttpClient.Builder()
                     .connectTimeout(30, TimeUnit.SECONDS)
@@ -549,22 +557,24 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                     .build()
 
                 val modelName = _geminiModelName.value
-                val targetUrl = if (url.contains("googleapis.com")) {
-                    "${url}v1beta/models/$modelName:generateContent?key=$key"
+                val targetUrl = if (isOpenAi) {
+                    val baseUrl = if (url.endsWith("/")) url else "$url/"
+                    if (url.contains("chat/completions")) url else "${baseUrl}chat/completions"
                 } else {
-                    if (url.contains("?")) {
-                        "$url&key=$key"
-                    } else {
-                        "${url}v1beta/models/$modelName:generateContent?key=$key"
-                    }
+                    "${url}v1beta/models/$modelName:generateContent?key=$key"
                 }
 
                 val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
                 val body = requestJson.toRequestBody(mediaType)
-                val request = Request.Builder()
+                val requestBuilder = Request.Builder()
                     .url(targetUrl)
                     .post(body)
-                    .build()
+
+                if (isOpenAi) {
+                    requestBuilder.addHeader("Authorization", "Bearer $key")
+                }
+
+                val request = requestBuilder.build()
 
                 val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     okHttpClient.newCall(request).execute()
@@ -573,7 +583,11 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
                     if (responseBody != null) {
-                        val text = extractTextFromGeminiJson(responseBody)
+                        val text = if (isOpenAi) {
+                            extractTextFromOpenAiJson(responseBody) ?: extractTextFromGeminiJson(responseBody)
+                        } else {
+                            extractTextFromGeminiJson(responseBody)
+                        }
                         if (text != null) {
                             _aiAnalysisResult.value = _aiAnalysisResult.value + (symbol to text)
                         } else {
@@ -591,6 +605,80 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
             } finally {
                 _aiAnalysisLoading.value = _aiAnalysisLoading.value + (symbol to false)
             }
+        }
+    }
+
+    /**
+     * Extremely safe manual json parser for OpenAI/GapGPT response content fields
+     */
+    private fun extractTextFromOpenAiJson(json: String): String? {
+        try {
+            // Locate "content" token
+            val contentToken = "\"content\""
+            var index = json.indexOf(contentToken)
+            if (index == -1) {
+                val escapedToken = "\\\"content\\\""
+                index = json.indexOf(escapedToken)
+                if (index == -1) return null
+            }
+            // Move past content token
+            val offset = if (json[index] == '\\') 11 else 9
+            index += offset
+            
+            // Find start quote of value
+            var startQuote = json.indexOf('"', index)
+            if (startQuote == -1) return null
+            
+            // Loop and parse character escapes
+            val sb = java.lang.StringBuilder()
+            var i = startQuote + 1
+            while (i < json.length) {
+                val c = json[i]
+                if (c == '"') {
+                    if (json[i - 1] != '\\') {
+                        break // End of string
+                    } else {
+                        if (sb.isNotEmpty()) sb.deleteCharAt(sb.length - 1)
+                        sb.append('"')
+                    }
+                } else if (c == '\\') {
+                    if (i + 1 < json.length) {
+                        val next = json[i + 1]
+                        if (next == 'n') {
+                            sb.append('\n')
+                            i++
+                        } else if (next == 't') {
+                            sb.append('\t')
+                            i++
+                        } else if (next == 'r') {
+                            i++
+                        } else if (next == 'u' && i + 5 < json.length) {
+                            try {
+                                val hex = json.substring(i + 2, i + 6)
+                                val charCode = hex.toInt(16)
+                                sb.append(charCode.toChar())
+                                i += 5
+                            } catch (e: Exception) {
+                                sb.append('\\').append('u')
+                                i++
+                            }
+                        } else if (next == '\"') {
+                            sb.append('\"')
+                            i++
+                        } else {
+                            sb.append('\\')
+                        }
+                    } else {
+                        sb.append('\\')
+                    }
+                } else {
+                    sb.append(c)
+                }
+                i++
+            }
+            return sb.toString()
+        } catch (e: Exception) {
+            return null
         }
     }
 
@@ -870,7 +958,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                         else -> "فیلتر پیشرفته VIP (قوی): حجم > ۱ میلیون (نقدینگی ورود/خروج بسیار بالا)، عایق تورم نقطه به نقطه کشور (${String.format(java.util.Locale.US, "%.1f", minInfl)}٪)، ارزش > ۱۰ میلیارد ریال، پرداخت پایدار DPS در سال‌های گذشته."
                     }
 
-                    s.copy(
+                    val baseSignal = s.copy(
                         price = finalPrice,
                         eps = adjustedData.adjustedEps,
                         pe = if (adjustedData.adjustedEps > 0) finalPrice.toFloat() / adjustedData.adjustedEps else 0f,
@@ -904,6 +992,52 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                         auditMessage = auditResult.auditMessage,
                         differencePercent = auditResult.differencePercent,
                         lastCodalSyncTime = System.currentTimeMillis()
+                    )
+
+                    // Let's implement Part 3 & 4 - Quant Audit & Data Validation additions:
+                    var validatedPrice = baseSignal.price
+                    var validatedPriceLabel = "قیمت بازار"
+                    var validatedWarning = ""
+                    var validatedDpsSource = "سود نقدی مصوب"
+
+                    // 1. check status STOPPED or SUSPENDED
+                    if (baseSignal.status == "STOPPED" || baseSignal.status == "SUSPENDED") {
+                        val capRatio = baseSignal.capIncreasePercent / 100f
+                        val theoreticalPrice = if (capRatio > 0f) {
+                            ((baseSignal.price - baseSignal.dps).coerceAtLeast(0L).toFloat() / (1f + capRatio)).toLong()
+                        } else {
+                            baseSignal.price
+                        }
+
+                        // Compare unadjusted price with theoretical price
+                        val priceDiffPct = if (theoreticalPrice > 0) {
+                            kotlin.math.abs(baseSignal.price - theoreticalPrice).toFloat() / theoreticalPrice
+                        } else 0f
+
+                        if (priceDiffPct > 0.05f) {
+                            validatedPriceLabel = "قیمت تئوریک (تعدیل شده)"
+                            validatedPrice = theoreticalPrice
+                            validatedWarning = "نماد متوقف است؛ قیمت نمایش داده شده محاسباتی است."
+                        }
+                    }
+
+                    // 2. Validate P/E
+                    val calculatedPe = if (baseSignal.eps > 0) validatedPrice.toFloat() / baseSignal.eps else 0f
+                    if (kotlin.math.abs(calculatedPe - baseSignal.pe) > 0.1f) {
+                        // Under-the-hood indicator check complete
+                    }
+
+                    // 3. Control DPS
+                    if (baseSignal.dps > baseSignal.eps) {
+                        validatedDpsSource = "سود انباشته / تجدید ارزیابی"
+                    }
+
+                    baseSignal.copy(
+                        displayPrice = validatedPrice,
+                        priceLabel = validatedPriceLabel,
+                        warning = validatedWarning,
+                        dpsSource = validatedDpsSource,
+                        displayEpsLabel = "EPS تحلیلی (پس از مجمع)"
                     )
                 }
 

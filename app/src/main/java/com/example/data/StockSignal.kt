@@ -36,9 +36,18 @@ data class StockSignal(
     val auditStatusColor: String = "Green", // "Green", "Yellow", "Red"
     val auditMessage: String = "اطلاعات مالی معتبر",
     val differencePercent: Float = 0f,
-    val lastCodalSyncTime: Long = System.currentTimeMillis()
+    val lastCodalSyncTime: Long = System.currentTimeMillis(),
+    
+    // --- 🌟 Pseudo-code requested validation fields 🌟 ---
+    val status: String = "ACTIVE", // "ACTIVE", "STOPPED", "SUSPENDED"
+    val capIncreasePercent: Float = 0f,
+    val dpsSource: String = "سود نقدی مصوب",
+    val priceLabel: String = "قیمت بازار",
+    val displayPrice: Long = price,
+    val displayEpsLabel: String = "EPS TTM",
+    val warning: String = ""
 ) : Serializable {
-    val priceInToman: Long get() = price / 10
+    val priceInToman: Long get() = displayPrice / 10
     val valueInToman: Long get() = value / 10
     
     // Total Return Potential = Dividend Yield + Capital Growth Potential
