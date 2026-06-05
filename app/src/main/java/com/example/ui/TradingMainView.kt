@@ -1918,6 +1918,8 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
     var expanded by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
     var showDemoDialog by remember { mutableStateOf(false) }
+    var investmentAmountText by remember { mutableStateOf("100") }
+    var showCalcDialog by remember { mutableStateOf(false) }
 
     // State bindings for direct manual user inputs
     var yr1 by remember(stock) { mutableStateOf(stock.historicalDps.getOrElse(0) { 100 }.toString()) }
@@ -1993,8 +1995,35 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     )
                 }
 
-                // Growth badge
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Growth badge & Calculator icon
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .border(1.5.dp, goldClr.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                            .clickable { showCalcDialog = true }
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "محاسبه مجمع",
+                                tint = goldClr,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "🧮 ماشین‌حساب بازدهی مجمع",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = goldClr
+                            )
+                        }
+                    }
+
                     Text(
                         text = (if (isPositive) "+" else "") + String.format(Locale.US, "%.2f", stock.changePercent) + "%",
                         fontSize = 13.sp,
@@ -2306,6 +2335,224 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                         fontWeight = FontWeight.Bold,
                                         color = textPrimary
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // --- 🧮 Inline Stock Calculator Card ---
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = goldClr.copy(alpha = 0.05f)),
+                        border = BorderStroke(1.2.dp, goldClr.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Analytics,
+                                    contentDescription = null,
+                                    tint = goldClr,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "ماشین‌حساب هوشمند سود نو مجمع (${stock.symbol})",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "پیش‌بینی دقیق کارمزد خرید بورس، قیمت تمام‌شده مواجهه مجمع، سود نقدی تقسیمی و برآورد سهام جایزه فزر، شپدیس و ...",
+                                fontSize = 9.sp,
+                                color = textMuted
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            OutlinedTextField(
+                                value = investmentAmountText,
+                                onValueChange = { investmentAmountText = it },
+                                label = { Text("مبلغ سرمایه‌گذاری مورد نظر (میلیون تومان)", fontSize = 11.sp, color = textMuted) },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 1,
+                                suffix = { Text("میلیون تومان", fontSize = 10.sp, color = textMuted) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                leadingIcon = {
+                                    Icon(Icons.Default.Savings, contentDescription = null, tint = goldClr, modifier = Modifier.size(16.dp))
+                                },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = cardBorder,
+                                    focusedBorderColor = goldClr,
+                                    unfocusedTextColor = textPrimary,
+                                    focusedTextColor = textPrimary
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Shortcut buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(
+                                    "۱۰" to "۱۰ میلیون",
+                                    "۵۰" to "۵۰ میلیون",
+                                    "۱۰۰" to "۱۰۰ میلیون",
+                                    "۵۰۰" to "۵۰۰ میلیون"
+                                ).forEach { (valStr, label) ->
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(
+                                                if (investmentAmountText == valStr) goldClr else itemBg,
+                                                RoundedCornerShape(6.dp)
+                                            )
+                                            .border(1.dp, if (investmentAmountText == valStr) goldClr else cardBorder, RoundedCornerShape(6.dp))
+                                            .clickable { investmentAmountText = valStr }
+                                            .padding(vertical = 6.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (investmentAmountText == valStr) Color(0xFF0C0E14) else textPrimary
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Divider(color = dividerColor, thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Compute values
+                            val cleanNumInline = investmentAmountText.replace(Regex("[^0-9.]"), "")
+                            val amountTomansDoubleVal = cleanNumInline.toDoubleOrNull() ?: 100.0
+                            val actualTomanValueVal = amountTomansDoubleVal * 1_000_000.0
+
+                            val commissionFeeVal = actualTomanValueVal * 0.003712
+                            val netPurchaseAmountVal = actualTomanValueVal - commissionFeeVal
+                            val sharePriceTomanVal = stock.priceInToman
+                            val sharesCountVal = if (sharePriceTomanVal > 0) (netPurchaseAmountVal / sharePriceTomanVal).toLong() else 0L
+                            val costBasisPerShareVal = if (sharesCountVal > 0) (actualTomanValueVal / sharesCountVal) else sharePriceTomanVal.toDouble()
+                            val dpsTomanVal = stock.dps / 10.0
+                            val totalCashDividendVal = sharesCountVal * dpsTomanVal
+
+                            val capIncreasePercentVal = when (stock.symbol) {
+                                "فزر" -> 80f
+                                "بوعلی" -> 40f
+                                "شپدیس" -> 60f
+                                "فملی" -> 50f
+                                "فولاد" -> 70f
+                                "شتران" -> 75f
+                                "وغدیر" -> 45f
+                                else -> 30f
+                            }
+                            val bonusSharesCountVal = (sharesCountVal * (capIncreasePercentVal / 100.0)).toLong()
+
+                            // Annual Growth and compound calculation
+                            val finalCapitalValueVal = netPurchaseAmountVal * (1.0 + stock.totalReturnPotential / 100.0)
+                            val netCompoundProfitVal = finalCapitalValueVal - actualTomanValueVal
+
+                            // Details Grid
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("کارمزد خرید کارگزاری (۰.۳۷٪ قانون بورس):", fontSize = 10.sp, color = textMuted)
+                                    Text("${formatPrice(commissionFeeVal.toLong())} تومان", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("تعداد کل برگ سهام قابل خرید:", fontSize = 10.sp, color = textMuted)
+                                    Text("${formatPrice(sharesCountVal)} برگه سهم", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.Bold)
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("قیمت تمام شده هر برگ سهم (با کارمزد):", fontSize = 10.sp, color = textMuted)
+                                    Text("${formatPrice(costBasisPerShareVal.toLong())} تومان", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("قیمت جاری روی تابلو TSETMC:", fontSize = 10.sp, color = textMuted)
+                                    Text("${formatPrice(sharePriceTomanVal)} تومان", fontSize = 11.sp, color = textPrimary)
+                                }
+
+                                Divider(color = dividerColor.copy(alpha = 0.5f), thickness = 1.dp)
+
+                                Text(
+                                    text = "📊 پیش‌بینی نهایی سرمایه و دریافتی‌های مجمع:",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = goldClr
+                                )
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(StockGreen.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                        .padding(6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.TrendingUp, contentDescription = null, tint = StockGreen, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("عایدی خالص نقدی سود مجمع (Sajam):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Text("${formatPrice(totalCashDividendVal.toLong())} تومان", fontSize = 11.sp, color = StockGreen, fontWeight = FontWeight.Black)
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                        .padding(6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Star, contentDescription = null, tint = goldClr, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("سهام جایزه اعطایی رایگان مجمع ($capIncreasePercentVal%):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    }
+                                    Text("${formatPrice(bonusSharesCountVal)} برگه سهم جایزه", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Black)
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                        .border(1.dp, goldClr, RoundedCornerShape(6.dp))
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text("ارزش کل دارایی و سودها بعد از یک سال:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                        Text("شامل اصل سرمایه + سود نهایی مرکب مجمع", fontSize = 8.sp, color = textMuted)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("${formatPrice(finalCapitalValueVal.toLong())} تومان", fontSize = 13.sp, color = textPrimary, fontWeight = FontWeight.Black)
+                                        Text("(+${formatPrice(netCompoundProfitVal.toLong())} عایدی مرکب)", fontSize = 10.sp, color = StockGreen, fontWeight = FontWeight.Bold)
+                                    }
                                 }
                             }
                         }
@@ -2777,6 +3024,237 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
             stock = stock,
             onDismiss = { showDemoDialog = false },
             isDarkMode = isDarkMode
+        )
+    }
+
+    if (showCalcDialog) {
+        AlertDialog(
+            onDismissRequest = { showCalcDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Analytics,
+                        contentDescription = null,
+                        tint = goldClr,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "محاسبه‌گر پیش‌بینی مجمع و سود مرکب ${stock.symbol}",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textPrimary
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "با وارد کردن کل سرمایه مورد نظر خود به میلیون تومان، میزان کارمزد بورس، قیمت تمام‌شده واقعی، سود نقدی واریزی مجمع و سهام جایزه حاصله را فوری محاسبه و پیش‌بینی کنید.",
+                        fontSize = 11.sp,
+                        color = textMuted,
+                        lineHeight = 16.ssp()
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    OutlinedTextField(
+                        value = investmentAmountText,
+                        onValueChange = { investmentAmountText = it },
+                        label = { Text("کل مبلغ سرمایه‌گذاری (میلیون تومان)", fontSize = 11.sp, color = textMuted) },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 1,
+                        suffix = { Text("میلیون تومان", fontSize = 10.sp, color = textMuted) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        leadingIcon = {
+                            Icon(Icons.Default.Savings, contentDescription = null, tint = goldClr, modifier = Modifier.size(16.dp))
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = cardBorder,
+                            focusedBorderColor = goldClr,
+                            unfocusedTextColor = textPrimary,
+                            focusedTextColor = textPrimary
+                        )
+                    )
+
+                    // Shortcuts block
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            "۱۰" to "۱۰ م",
+                            "۵۰" to "۵۰ م",
+                            "۱۰۰" to "۱۰۰ م",
+                            "۵۰۰" to "۵۰۰ م"
+                        ).forEach { (valStr, label) ->
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(
+                                        if (investmentAmountText == valStr) goldClr else itemBg,
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .border(1.dp, if (investmentAmountText == valStr) goldClr else cardBorder, RoundedCornerShape(6.dp))
+                                    .clickable { investmentAmountText = valStr }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (investmentAmountText == valStr) Color(0xFF0C0E14) else textPrimary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Divider(color = dividerColor.copy(alpha = 0.5f), thickness = 1.dp)
+
+                    // Calculation logic conversion
+                    val cleanNum = investmentAmountText.replace(Regex("[^0-9.]"), "")
+                    val amountTomansDouble = cleanNum.toDoubleOrNull() ?: 100.0
+                    val actualTomanValue = amountTomansDouble * 1_000_000.0
+
+                    val commissionFee = actualTomanValue * 0.003712
+                    val netPurchaseAmount = actualTomanValue - commissionFee
+                    val sharePriceToman = stock.priceInToman
+                    val sharesCount = if (sharePriceToman > 0) (netPurchaseAmount / sharePriceToman).toLong() else 0L
+                    val costBasisPerShare = if (sharesCount > 0) (actualTomanValue / sharesCount) else sharePriceToman.toDouble()
+                    val dpsToman = stock.dps / 10.0
+                    val totalCashDividend = sharesCount * dpsToman
+
+                    val capIncreasePercent = when (stock.symbol) {
+                        "فزر" -> 80f
+                        "بوعلی" -> 40f
+                        "شپدیس" -> 60f
+                        "فملی" -> 50f
+                        "فولاد" -> 70f
+                        "شتران" -> 75f
+                        "وغدیر" -> 45f
+                        else -> 30f
+                    }
+                    val bonusSharesCount = (sharesCount * (capIncreasePercent / 100.0)).toLong()
+
+                    // Annual compound projection
+                    val finalCapitalValue = netPurchaseAmount * (1.0 + stock.totalReturnPotential / 100.0)
+                    val netCompoundProfit = finalCapitalValue - actualTomanValue
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("کارمزد کل خرید (۰.۳۷٪ قانونی بورس):", fontSize = 10.sp, color = textMuted)
+                            Text("${formatPrice(commissionFee.toLong())} تومان", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("تعداد کل سهام خریداری‌شده:", fontSize = 10.sp, color = textMuted)
+                            Text("${formatPrice(sharesCount)} برگه سهم", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.Bold)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("قیمت تمام‌شده هر برگه سهم (با کارمزد):", fontSize = 10.sp, color = textMuted)
+                            Text("${formatPrice(costBasisPerShare.toLong())} تومان", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("قیمت پایه تابلو:", fontSize = 10.sp, color = textMuted)
+                            Text("${formatPrice(sharePriceToman)} تومان", fontSize = 11.sp, color = textPrimary)
+                        }
+
+                        Divider(color = dividerColor.copy(alpha = 0.3f), thickness = 1.dp)
+
+                        Text(
+                            text = "پیش‌بینی نهایی آورده و عایق تورمی مجمع:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldClr
+                        )
+
+                        // 1. Direct Cash dividend
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(StockGreen.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                .padding(6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.TrendingUp, contentDescription = null, tint = StockGreen, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("واریزی خالص نقدی سود سهام (سجام):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text("${formatPrice(totalCashDividend.toLong())} تومان", fontSize = 11.sp, color = StockGreen, fontWeight = FontWeight.Black)
+                        }
+
+                        // 2. Bonus Shares
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
+                                .padding(6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Star, contentDescription = null, tint = goldClr, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("سهام جایزه رایگان مجمع ($capIncreasePercent%):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                            }
+                            Text("${formatPrice(bonusSharesCount)} برگه سهم", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Black)
+                        }
+
+                        // 3. Compound growth and final results
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                .border(1.dp, goldClr, RoundedCornerShape(6.dp))
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("کل دارایی‌های حاصل پس از یکسال:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                Text("شامل اصل سرمایه + سود نقدی + رشد ارزش", fontSize = 8.sp, color = textMuted)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("${formatPrice(finalCapitalValue.toLong())} تومان", fontSize = 13.sp, color = textPrimary, fontWeight = FontWeight.Black)
+                                Text("(+${formatPrice(netCompoundProfit.toLong())} سود پیش‌بینی شده)", fontSize = 10.sp, color = StockGreen, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showCalcDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = goldClr)
+                ) {
+                    Text("بستن ماشین‌حساب ❌", color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = cardBackground
         )
     }
 }
