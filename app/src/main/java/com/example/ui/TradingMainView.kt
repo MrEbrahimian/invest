@@ -317,7 +317,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
             )
 
             Text(
-                text = "پایگاه تحلیل نخبگان، برآورد تخصصی سود نقدی و کالیبراسیون سبد معاملاتی بورس تهران",
+                text = "برنامه هوشمند پیش‌بینی سود نقدی سالانه و بررسی آسان سهام بورس تهران",
                 fontSize = 12.sp,
                 color = textMuted,
                 textAlign = TextAlign.Center,
@@ -345,7 +345,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "🔐 ارتباط امن کلاینت‌ساید (محلی)",
+                            text = "🔐 محاسبات امن درون برنامه‌ای (روی گوشی)",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = textPrimary
@@ -355,7 +355,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                     Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "محاسبات ریاضی، پایش کارمزد و کسر سود مجمع به‌صورت کاملاً آفلاین روی دستگاه شما پردازش می‌گردد. جهت اتصال امن به شبکه داده‌های مجمع‌یاب، لطفاً کلید دسترسی رمزگذاری شده خود را وارد نمایید.",
+                        text = "محاسبه سودها، کارمزد بورس و بررسی درآمد سهام شما، کاملاً بدون نیاز به اینترنت (آفلاین) روی گوشی شما انجام می‌شود. برای بروزرسانی قیمت‌ها و سودهای جدید، کلید دسترسی (توکن) خود را در کادر زیر وارد کنید.",
                         fontSize = 11.5.sp,
                         color = textMuted,
                         lineHeight = 19.sp
@@ -501,7 +501,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                     if (isSandboxExpanded) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "جهت تست دستی با شماره تلفن‌های گوناگون، شماره موبایل را وارد کرده تا کلید رمزنگاری شده AES-256 متناظر تولید گردد:",
+                            text = "جهت بررسی و شبیه‌سازی با شماره تلفن‌های گوناگون، شماره موبایل دلخواه را وارد کرده تا کلید دسترسی متناظر ساخته شود:",
                             fontSize = 11.sp,
                             color = textMuted,
                             lineHeight = 18.sp
@@ -512,7 +512,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                         OutlinedTextField(
                             value = testMobileInput,
                             onValueChange = { testMobileInput = it },
-                            label = { Text("شماره همراه کلاینت", color = textMuted, fontSize = 11.sp) },
+                            label = { Text("شماره همراه شما", color = textMuted, fontSize = 11.sp) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1359,7 +1359,7 @@ fun VipDashboardScreen(
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = "کالیبراسیون تخصصی اهداف سود و پتانسیل رشد مجمع",
+                                                text = "تنظیم دلخواه سود سالانه و رشد سهام (شخصی‌سازی)",
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = textCol
@@ -1372,7 +1372,7 @@ fun VipDashboardScreen(
                                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                                             ) {
                                                 Text(
-                                                    text = "${hiddenSignals.size} سهم فیلتر شده (خارج از کالیبر)",
+                                                    text = "${hiddenSignals.size} سهم مخفی شد (خارج از فیلترهای شما)",
                                                     fontSize = 8.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = goldAccent
@@ -1388,7 +1388,7 @@ fun VipDashboardScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "حداقل سود تقسیمی سالانه مورد انتظار (DPS):",
+                                            text = "حداقل سود نقدی مجمع مورد انتظار شما (DPS):",
                                             fontSize = 10.sp,
                                             color = mutedCol
                                         )
@@ -1422,7 +1422,7 @@ fun VipDashboardScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "حداقل پتانسیل رشد سالانه ارزش فنی سهم:",
+                                            text = "حداقل رشد پیش‌بینی شده برای قیمت خود سهم در سال:",
                                             fontSize = 10.sp,
                                             color = mutedCol
                                         )
@@ -1456,7 +1456,7 @@ fun VipDashboardScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "کالیبره پایشگر پیام بورس (اطلاع‌رسانی سود بالای):",
+                                            text = "حداقل سود انتخابی شما برای فرستادن هشدارهای فوری:",
                                             fontSize = 10.sp,
                                             color = mutedCol
                                         )
@@ -1504,15 +1504,15 @@ fun VipDashboardScreen(
                                         )
                                         Column {
                                             Text(
-                                                text = "💡 راهنمای کالیبراسیون تخصصی و بهره‌وری سود مجمع:",
+                                                text = "💡 راهنما به زبان ساده برای تنظیم فیلترهای سود و قیمت:",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = goldAccent
                                             )
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
-                                                text = "۱. سود نقدی (DPS): میانگین بازده نقدی مجامع بورس ایران ۱۰ تا ۱۵ درصد است. قرار دادن کف سود بالای ۱۵٪ به شما کمک می‌کند شرکت‌های بسیار متعهد را فیلتر کنید.\n" +
-                                                       "۲. پتانسیل رشد ارزش فنی: حداقل پتانسیلی است که سهم از خود مجمع تا چند ماه بعد دارد تا افت ارزش ریال را خنثی کند. ترکیب هوشمندانه این دو اهرم، «حفاظت دارایی در برابر تورم ۳۸٪» بورس را کاملاً تضمین می‌کند.",
+                                                text = "۱. سود نقدی (DPS): یعنی مقداری از سود شرکت که پس از جلسه سالانه به حساب شما واریز می‌شود. بازده معمولی شرکت‌ها در ایران ۱۰ تا ۱۵ درصد است. اگر بالاتر بگذارید، بقیه شرکت‌ها مخفی می‌شوند.\n" +
+                                                       "۲. پتانسیل رشد سهم: یعنی پیش‌بینی اینکه چقدر قیمت خود برگه سهم بالا می‌رود تا ارزش پول شما حفظ شود. با ترکیب عالی این دو مقدار، بهترین سهام‌های رشدکننده بورس را پیدا می‌کنید.",
                                                 fontSize = 9.sp,
                                                 color = mutedCol,
                                                 lineHeight = 15.sp
@@ -1947,7 +1947,7 @@ fun VipDashboardScreen(
                                         )
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "عیب‌یابی، بازسازی حافظه کش و به‌روزرسانی داده‌ها",
+                                            text = "بروزرسانی اطلاعات و رفع مشکلات احتمالی برنامه",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = textCol
@@ -1956,7 +1956,7 @@ fun VipDashboardScreen(
 
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "در صورت بروز نوسانات مجمع، تغییرات فرضی اشتباه یا منقضی شدن داده‌ها، از کنترل‌های سیستمی زیر جهت ترمیم کلاینت و همگام‌سازی مجدد استفاده کنید:",
+                                        text = "اگر احساس می‌کنید اطلاعات سهام یا سودها قدیمی شده‌اند یا تنظیماتی را به اشتباه تغییر داده‌اید، با دکمه‌های زیر می‌توانید اطلاعات زنده بازار بورس را مجدداً دریافت یا برنامه را به حالت اولیه برگردانید:",
                                         fontSize = 10.sp,
                                         color = mutedCol,
                                         lineHeight = 15.sp
@@ -2011,7 +2011,7 @@ fun VipDashboardScreen(
                                             modifier = Modifier.size(16.dp).padding(end = 4.dp)
                                         )
                                         Text(
-                                            text = "به‌روزرسانی اجباری و دریافت زنده اطلاعات مجمع هم‌اکنون",
+                                            text = "دریافت جدیدترین اطلاعات زنده سود سهام و قیمت‌ها",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -2023,7 +2023,7 @@ fun VipDashboardScreen(
                                     Button(
                                         onClick = {
                                             viewModel.clearCacheAndDefaults()
-                                            syncStatus = "✅ کش کلاینت پاک شد! تنظیمات کالیبراسیون به پیش‌فرض بازگشت."
+                                            syncStatus = "✅ حافظه موقت پاک شد! تنظیمات برنامه به حالت اول بازگشت."
                                         },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = surfaceVariantCol,
@@ -2039,7 +2039,7 @@ fun VipDashboardScreen(
                                             modifier = Modifier.size(16.dp).padding(end = 4.dp)
                                         )
                                         Text(
-                                            text = "پاکسازی و بازنشانی حافظه موقت کش کلاینت",
+                                            text = "پاک کردن حافظه موقت (برگشت تنظیمات به اول)",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -2454,7 +2454,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "جعبه ابزار کوانت تخصصی TSE (سنجش لایسنس VIP)",
+                                    text = "ارزیابی هوشمند و تحلیل سود سهامدار (VIP)",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textPrimary
@@ -2496,7 +2496,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                     }
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "شاخص کل کوانت (Master)",
+                                        text = "امتیاز کلی کیفیت سهم (از ۱۰۰)",
                                         fontSize = 9.sp,
                                         color = textMuted,
                                         textAlign = TextAlign.Center
@@ -2532,7 +2532,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                         textAlign = TextAlign.Center
                                     )
                                     Text(
-                                        text = "امتیاز عایق تورم (IHS)",
+                                        text = "شاخص حفظ ارزش پول در برابر تورم",
                                         fontSize = 8.sp,
                                         color = textMuted,
                                         textAlign = TextAlign.Center
@@ -4031,14 +4031,14 @@ fun StepByStepGuideDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
                             }
                             4 -> {
                                 Text(
-                                    text = "۴. ماشین‌حساب تخصصی کوانت 🧮",
+                                    text = "۴. ماشین‌حساب هوشمند سود سهامدار 🧮",
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textPrimary
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "در انتهای اطلاعات هر سهم، ماشین حساب خودکار قرار داده شده است. با وارد کردن تعداد سهام خود، میزان خالص سود نقدی واریزی سجام شما پس از مجمع فوراً همراه با تعداد سهام جایزه احتمالی محاسبه شده و اثر تورمی آن سنجیده می‌شود.",
+                                    text = "در پایینِ بخش جزئیات هر سهم، یک ماشین‌حساب هوشمند قرار دارد. کافی‌ست مبلغ سرمایه‌گذاری دلخواه را وارد کنید تا سود نقدی نهایی و برگ سهام جایزه‌تان پیش از مجمع، همراه با تحلیل ارزش دارایی‌تان فوراً محاسبه شود.",
                                     fontSize = 11.sp,
                                     color = textMuted,
                                     lineHeight = 18.sp
@@ -4293,7 +4293,7 @@ fun VisualTutorialDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
                                 3 -> {
                                     // Slide 3: COUANT QUANT CALCULATOR MOCKUP
                                     Text(
-                                        text = "🧮 ماشین‌حساب مدرن کوانت و اثرات تورمی",
+                                        text = "🧮 ماشین‌حساب هوشمند سود و اثرات تورمی",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = goldClr
@@ -4343,7 +4343,7 @@ fun VisualTutorialDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
                                 4 -> {
                                     // Slide 4: OFFLINE DATABASE PORTFOLIO
                                     Text(
-                                        text = "🗄️ ذخیره‌سازی آفلاین و کالیبراسیون الگوها",
+                                        text = "🗄️ ذخیره‌سازی آفلاین و تنظیمات شخصی شما",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = goldClr
@@ -4380,7 +4380,7 @@ fun VisualTutorialDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
                                     ) {
                                         Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(14.dp))
                                         Text(
-                                            text = "کالیبراسیون و ذخیره محلی Room این امکان را می‌دهد تا تحلیل کلان بورس را بدون نیاز به پهنای باند شبکه انجام دهید.",
+                                            text = "ذخیره محلی و هوشمند این امکان را می‌دهد تا بدون نیاز به اینترنت، همیشه به اطلاعات و تحلیل سهام خود دسترسی داشته باشید.",
                                             fontSize = 9.sp,
                                             color = textPrimary,
                                             lineHeight = 13.sp
@@ -4397,10 +4397,10 @@ fun VisualTutorialDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
                 // Explain text below screenshot mockup
                 Text(
                     text = when (activeSlide) {
-                        1 -> "💡 در جدول فیلترها، کلاس تعهد 'A' یعنی تسویه سریع سود زیر ۷۰ روز. با کالیبراسیون نرخ‌ها شانس خود را دو چندان کنید."
+                        1 -> "💡 در جدول فیلترها، رتبه تعهد 'A' یعنی تسویه سریع سود زیر ۷۰ روز. با تغییر فیلترها سهام مطابق با ایده خود را پیدا کنید."
                         2 -> "💡 متن خروجی تلگرام ساختار آماده مارک‌داون دارد و کپی مستقیم در پیام‌رسان‌ها را آسان می‌کند."
                         3 -> "💡 با تغییر حجم سهام در ماشین‌حساب، سود خالص تخمینی شما بر اساس کسر کارمزد دقیق سپرده‌گذاری محاسبه می‌شود."
-                        else -> "💡 پورتفوی فرضی بومی شما در محیط مجمع‌یاب کاملاً آفلاین و رمزنگاری شده روی حافظه داخلی ذخیره می‌گردد."
+                        else -> "💡 پورتفوی شخصی شما در محیط مجمع‌یاب کاملاً آفلاین و مطمئن روی حافظه داخلی گوشی ذخیره می‌گردد."
                     },
                     fontSize = 10.sp,
                     color = textMuted,
