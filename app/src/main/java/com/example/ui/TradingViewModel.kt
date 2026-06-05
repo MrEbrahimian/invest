@@ -73,7 +73,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _useLiveCrawler = MutableStateFlow(false) // Default to simulated stable data for quick testing
+    private val _useLiveCrawler = MutableStateFlow(true) // Default to Direct Live Connection with TSETMC
     val useLiveCrawler: StateFlow<Boolean> = _useLiveCrawler.asStateFlow()
 
     private val _scrapingErrorMessage = MutableStateFlow<String?>(null)
@@ -943,7 +943,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                 _hiddenSignals.value = excluded
                 
                 if (mergedStocks.isEmpty() && _useLiveCrawler.value) {
-                    _scrapingErrorMessage.value = "امکان برقراری ارتباط با TSETMC فراهم نشد. لطفاً سنسور شبیه‌ساز را فعال کنید."
+                    _scrapingErrorMessage.value = "امکان برقراری ارتباط با TSETMC فراهم نشد. لطفاً پایگاه داده پشتیبان را فعال کنید."
                 }
             } catch (e: Exception) {
                 _scrapingErrorMessage.value = "خطا در برقراری ارتباط و پردازش: ${e.localizedMessage}"

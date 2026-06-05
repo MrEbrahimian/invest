@@ -472,7 +472,7 @@ object TsetmcCrawler {
                 annualInflation = 48.3f,
                 pointToPointInflation = 53.9f,
                 isLiveFromCbi = false,
-                crawlTimestamp = "$timestamp (اتصال آفلاین با شبیه‌ساز انطباق مرکزی)"
+                crawlTimestamp = "$timestamp (اتصال آفلاین با پایگاه داده پشتیبان مرکزی)"
             )
         }
     }

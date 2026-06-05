@@ -268,7 +268,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "🛠️ بخش تست و شبیه‌ساز آفلاین لایسنس",
+                        text = "🛠️ بخش فعال‌سازی و صدور آفلاین لایسنس",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = goldClr
@@ -277,7 +277,7 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "برای تسریع آزمون، می‌توانید لایسنس اختصاصی برای شماره موبایل خود را در بخش زیر شبیه‌سازی کرده و مستقیماً کپی و استفاده کنید:",
+                        text = "جهت تسهیل ورود، می‌توانید کلید لایسنس اختصاصی برای شماره موبایل خود را از بخش زیر دریافت کرده و مستقیماً کپی و استفاده کنید:",
                         fontSize = 12.sp,
                         color = textMuted,
                         lineHeight = 20.ssp()
@@ -555,7 +555,7 @@ fun VipDashboardScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (useLiveCrawler) "LIVE SCRAPING ACTIVE" else "SIMULATOR ACTIVE",
+                                        text = if (useLiveCrawler) "LIVE TSETMC CONNECTED" else "OFFLINE BACKUP ACTIVE",
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = mutedCol,
@@ -613,7 +613,7 @@ fun VipDashboardScreen(
                     NavigationBarItem(
                         selected = currentTab == 3,
                         onClick = { currentTab = 3 },
-                        label = { Text("تنظیمات و شبیه‌ساز", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 3) goldAccent else mutedCol) },
+                        label = { Text("تنظیمات و شبکه داده", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 3) goldAccent else mutedCol) },
                         icon = { Icon(Icons.Default.Person, contentDescription = null, tint = if (currentTab == 3) goldAccent else mutedCol) }
                     )
                 }
@@ -762,7 +762,7 @@ fun VipDashboardScreen(
                                                 color = textCol
                                             )
                                             Text(
-                                                text = if (useLiveCrawler) "اتصال مستقیم کراولر زنده به tsetmc.com" else "شبیه‌ساز فوق کالیبره بازار تهران (آفلاین)",
+                                                text = if (useLiveCrawler) "اتصال مستقیم کراولر زنده به tsetmc.com" else "پایگاه داده آفلاین پشتیبان (تطبیق مرکزی با بورس تهران)",
                                                 fontSize = 11.sp,
                                                 color = mutedCol
                                             )
