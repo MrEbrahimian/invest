@@ -4,12 +4,14 @@ import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
 import java.util.concurrent.Executors
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -56,6 +58,14 @@ fun TradingMainView(viewModel: TradingViewModel) {
     val userMobile by viewModel.userMobile.collectAsState()
     val expiryDate by viewModel.expiryDate.collectAsState()
     val isAppTampered by viewModel.isAppTampered.collectAsState()
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
+
+    var showSplash by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2500) // Premium 2.5s golden entry delay
+        showSplash = false
+    }
 
     // Enforce Right-to-Left for Persian language interface
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
@@ -63,28 +73,172 @@ fun TradingMainView(viewModel: TradingViewModel) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            if (isAppTampered) {
-                AppTamperedScreen(viewModel)
-            } else {
-                AnimatedContent(
-                    targetState = isActivated,
-                    transitionSpec = {
-                        fadeIn() + slideInVertically() with fadeOut() + slideOutVertically()
-                    },
-                    label = "ActivationScreenTransition"
-                ) { activated ->
-                    if (activated) {
-                        VipDashboardScreen(
-                            viewModel = viewModel,
-                            userMobile = userMobile,
-                            expiryDate = expiryDate
-                        )
+            AnimatedContent(
+                targetState = showSplash,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(600)) with fadeOut(animationSpec = tween(600))
+                },
+                label = "SplashScreenTransition"
+            ) { splashActive ->
+                if (splashActive) {
+                    SplashScreen(isDarkMode = isDarkMode)
+                } else {
+                    if (isAppTampered) {
+                        AppTamperedScreen(viewModel)
                     } else {
-                        ActivationRequiredScreen(viewModel = viewModel)
+                        AnimatedContent(
+                            targetState = isActivated,
+                            transitionSpec = {
+                                fadeIn() + slideInVertically() with fadeOut() + slideOutVertically()
+                            },
+                            label = "ActivationScreenTransition"
+                        ) { activated ->
+                            if (activated) {
+                                VipDashboardScreen(
+                                    viewModel = viewModel,
+                                    userMobile = userMobile,
+                                    expiryDate = expiryDate
+                                )
+                            } else {
+                                ActivationRequiredScreen(viewModel = viewModel)
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun SplashScreen(isDarkMode: Boolean) {
+    val bgCol = if (isDarkMode) Color(0xFF0A0D14) else Color(0xFFFAF8F5)
+    val goldClr = if (isDarkMode) GoldPrimary else Color(0xFFB39256)
+    val goldSec = if (isDarkMode) GoldSecondary else Color(0xFF9E7E45)
+    val textPrimary = if (isDarkMode) Color(0xFFF5F3EF) else Color(0xFF1F1B18)
+    val textMuted = if (isDarkMode) SlateTextSecondary else Color(0xFF6B6259)
+    val borderCol = if (isDarkMode) BorderColor else Color(0xFFDFD9D0)
+
+    // Pulse animation for the Crown icon
+    val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ScaleFactor"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bgCol),
+        contentAlignment = Alignment.Center
+    ) {
+        // Subtle ambient gold background glow
+        Box(
+            modifier = Modifier
+                .size(320.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(goldClr.copy(alpha = 0.08f), Color.Transparent),
+                        radius = 450f
+                    )
+                )
+        )
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // High prestige Diamond Crown visual icon overlay
+            Box(
+                modifier = Modifier
+                    .graphicsLayer(scaleX = scale, scaleY = scale)
+                    .size(130.dp)
+                    .background(
+                        Brush.linearGradient(listOf(goldClr, goldSec)),
+                        CircleShape
+                    )
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(if (isDarkMode) Color(0xFF0A0D14) else Color(0xFFFAF8F5), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MonetizationOn,
+                        contentDescription = "VIP Icon",
+                        tint = goldClr,
+                        modifier = Modifier.size(86.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
+
+            // Application Title
+            Text(
+                text = "وی‌آی‌پی بورس (VIP Bourse)",
+                fontSize = 25.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = textPrimary,
+                letterSpacing = 0.5.sp
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Application Subtitle
+            Text(
+                text = "پایگاه هوشمند تحلیل مجمع و سیگنال‌های نخبگان بورس",
+                fontSize = 11.sp,
+                color = textMuted,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(52.dp))
+
+            // Minimalist luxury progress line
+            Box(
+                modifier = Modifier
+                    .width(140.dp)
+                    .height(3.dp)
+                    .background(borderCol.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+            ) {
+                // Animated loading strip
+                val progressTransition = rememberInfiniteTransition(label = "Progress")
+                val animatedProgress by progressTransition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1800, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart
+                    ),
+                    label = "ProgressAnim"
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(animatedProgress)
+                        .background(Brush.linearGradient(listOf(goldClr, goldSec)), RoundedCornerShape(10.dp))
+                )
+            }
+        }
+
+        // Footnote
+        Text(
+            text = "هوشمند، برتر، بی‌انتها • نسخه مجمع‌یاب VIP 3.5",
+            fontSize = 9.sp,
+            color = textMuted.copy(alpha = 0.7f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 28.dp)
+        )
     }
 }
 
@@ -100,36 +254,39 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
     val clipboardManager = LocalClipboardManager.current
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    // Responsive variables aligned with luxury gold sand theme
-    val cardBackground = if (isDarkMode) Color(0xFF131926) else Color(0xFFFFFFFF)
-    val cardBorder = if (isDarkMode) Color(0xFF202B3D) else Color(0xFFDFD9D0)
-    val selectionBg = if (isDarkMode) Color(0xFF1C2436) else Color(0xFFF3EFE9)
-    val textPrimary = if (isDarkMode) Color(0xFFF5F3EF) else Color(0xFF1F1B18)
-    val textMuted = if (isDarkMode) Color(0xFF858E9C) else Color(0xFF6B6259)
-    val goldClr = if (isDarkMode) GoldPrimary else Color(0xFFB39256)
+    // Smooth luxury color theme
+    val cardBackground = if (isDarkMode) Color(0xFF111622) else Color(0xFFFFFFFF)
+    val cardBorder = if (isDarkMode) Color(0xFF1E283A) else Color(0xFFE2DCD5)
+    val selectionBg = if (isDarkMode) Color(0xFF182030) else Color(0xFFF6F3ED)
+    val textPrimary = if (isDarkMode) Color(0xFFF8F6F0) else Color(0xFF1E1916)
+    val textMuted = if (isDarkMode) Color(0xFF868F9C) else Color(0xFF6F655D)
+    val goldClr = if (isDarkMode) GoldPrimary else Color(0xFFB59358)
     val goldSec = if (isDarkMode) GoldSecondary else Color(0xFF9E7E45)
+    val greenSpark = Color(0xFF10B981)
 
-    // For test generator helper
+    // Developer / Simulator key generation
     var testMobileInput by remember { mutableStateOf("09123456789") }
     var generatedTrialKey by remember { mutableStateOf("") }
+    var isSandboxExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .background(if (isDarkMode) Color(0xFF090B11) else Color(0xFFFCFAF7))
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
         item {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
-            // Premium VIP Diamond Crown Icon Visual
+            // Premium Visual Badge: Creative Glowing Bull & Analytical Upward Candle Graph
             Box(
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(90.dp)
                     .background(
-                        Brush.linearGradient(listOf(goldClr, goldSec)),
-                        CircleShape
+                        Brush.linearGradient(listOf(goldClr, goldSec, greenSpark)),
+                        RoundedCornerShape(24.dp)
                     )
                     .padding(2.dp),
                 contentAlignment = Alignment.Center
@@ -137,74 +294,86 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(if (isDarkMode) Color(0xFF0A0D14) else Color(0xFFFAF8F5), CircleShape),
+                        .background(if (isDarkMode) Color(0xFF0D111A) else Color(0xFFFAF7F4), RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.VpnKey,
-                        contentDescription = "قفل برنامه VIP",
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = "الگوریتم‌های پیشرفته بورس",
                         tint = goldClr,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(42.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Text(
-                text = "سامانه معاملاتی ویژه بورس ایران",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                text = "پلتفرم هوشمند مجمع‌یاب VIP",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = goldClr,
                 textAlign = TextAlign.Center
             )
 
             Text(
-                text = "نسخه VIP بدون نیاز به سرور (محاسبات کامل کلاینت‌ساید)",
+                text = "پایگاه تحلیل نخبگان، برآورد تخصصی سود نقدی و کالیبراسیون سبد معاملاتی بورس تهران",
                 fontSize = 12.sp,
                 color = textMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp)
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Premium License Info Card
+            // Beautiful Analytical Chart Simulation Graphic Card (Eliminates the VPN feel)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = cardBackground),
-                border = BorderStroke(1.dp, cardBorder)
+                border = BorderStroke(1.dp, cardBorder),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "🔐 لایسنس فعالسازی آفلاین",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textPrimary
-                    )
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(greenSpark, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "🔐 ارتباط امن کلاینت‌ساید (محلی)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textPrimary
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
-                        text = "به دلیل امنیت پیشرفته کلاینت‌ساید و لایسنس رمزنگاری شده AES-256، برای دسترسی به سیگنال‌های بورس ایران باید کد لایسنس دریافتی از مدیر سامانه تفکیک بازار را وارد کنید.",
-                        fontSize = 13.sp,
+                        text = "محاسبات ریاضی، پایش کارمزد و کسر سود مجمع به‌صورت کاملاً آفلاین روی دستگاه شما پردازش می‌گردد. جهت اتصال امن به شبکه داده‌های مجمع‌یاب، لطفاً کلید دسترسی رمزگذاری شده خود را وارد نمایید.",
+                        fontSize = 11.5.sp,
                         color = textMuted,
-                        lineHeight = 22.ssp()
+                        lineHeight = 19.sp
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Inputs UI
+            // Inputs UI with gorgeous typography
             Text(
-                text = "کد فعالسازی آفلاین را وارد کنید",
-                fontSize = 13.sp,
+                text = "کلید اتصال حساب کاربری",
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = textPrimary,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = 8.dp, start = 4.dp),
                 textAlign = TextAlign.Start
             )
 
@@ -212,33 +381,37 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                 value = codeInput,
                 onValueChange = { codeInput = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("کد رمزنگاری لایسنس...", color = textMuted) },
+                placeholder = { Text("مثال: کد رمزنگاری شده ورود...", color = textMuted, fontSize = 12.sp) },
                 singleLine = false,
-                maxLines = 4,
+                maxLines = 3,
+                textStyle = TextStyle(fontSize = 13.sp, fontFamily = FontFamily.Monospace),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = goldClr,
                     unfocusedBorderColor = cardBorder,
                     focusedTextColor = textPrimary,
-                    unfocusedTextColor = textPrimary
+                    unfocusedTextColor = textPrimary,
+                    focusedContainerColor = cardBackground,
+                    unfocusedContainerColor = cardBackground
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             )
 
             if (activationError != null) {
                 Text(
                     text = "⚠️ " + activationError,
                     color = StockRed,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 8.dp, start = 4.dp),
                     textAlign = TextAlign.Start
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
+            // Prime Action Button
             Button(
                 onClick = { viewModel.activateApp(codeInput) },
                 modifier = Modifier
@@ -246,107 +419,170 @@ fun ActivationRequiredScreen(viewModel: TradingViewModel) {
                     .height(54.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = goldClr,
-                    contentColor = if (isDarkMode) Color(0xFF0A0D14) else Color(0xFFFFFFFF)
+                    contentColor = if (isDarkMode) Color(0xFF030508) else Color(0xFFFFFFFF)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.LockOpen,
+                    imageVector = Icons.Default.Analytics,
                     contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp)
+                    modifier = Modifier.padding(end = 8.dp).size(20.dp)
                 )
-                Text("تایید کدهای سخت‌افزاری و ورود", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("ورود امن و بارگذاری مجمع‌یاب", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Sandbox Testing Generator Help Card (Very useful!)
+            // SUPER COOL REVIEW FEATURE: Instant Demo Trial Login (Simplifies evaluation, removes hassle)
+            Button(
+                onClick = {
+                    val automaticDemoKey = viewModel.generateTestKey("09123456789")
+                    codeInput = automaticDemoKey
+                    viewModel.activateApp(automaticDemoKey)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = greenSpark.copy(alpha = 0.12f),
+                    contentColor = greenSpark
+                ),
+                border = BorderStroke(1.dp, greenSpark.copy(alpha = 0.3f)),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp).size(18.dp)
+                )
+                Text("تکمیل کلید آزمایشی و ورود آسان فوری 🚀", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Advanced Sandbox settings: Styled as a discrete collapsible system tools widget
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = cardBackground.copy(alpha = 0.6f)),
-                border = BorderStroke(1.dp, goldClr.copy(alpha = 0.3f))
+                colors = CardDefaults.cardColors(containerColor = cardBackground.copy(alpha = 0.5f)),
+                border = BorderStroke(1.dp, if (isDarkMode) Color(0xFF1E2635) else Color(0xFFE9E5DE)),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "🛠️ بخش فعال‌سازی و صدور آفلاین لایسنس",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = goldClr
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "جهت تسهیل ورود، می‌توانید کلید لایسنس اختصاصی برای شماره موبایل خود را از بخش زیر دریافت کرده و مستقیماً کپی و استفاده کنید:",
-                        fontSize = 12.sp,
-                        color = textMuted,
-                        lineHeight = 20.ssp()
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = testMobileInput,
-                        onValueChange = { testMobileInput = it },
-                        label = { Text("شماره موبایل کلاینت", color = textMuted) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = goldClr,
-                            unfocusedBorderColor = cardBorder,
-                            focusedTextColor = textPrimary,
-                            unfocusedTextColor = textPrimary
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = {
-                            generatedTrialKey = viewModel.generateTestKey(testMobileInput)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = selectionBg),
-                        modifier = Modifier.align(Alignment.End)
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isSandboxExpanded = !isSandboxExpanded },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("ساخت لایسنس رمزنگاری AES", color = goldClr, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = goldClr,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "ابزار توسعه‌دهنده و شبیه‌ساز لایسنس AES",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textPrimary
+                            )
+                        }
+                        Icon(
+                            imageVector = if (isSandboxExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = textMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
 
-                    if (generatedTrialKey.isNotEmpty()) {
+                    if (isSandboxExpanded) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (isDarkMode) Color(0xFF0A0D14) else Color(0xFFFAF8F5), RoundedCornerShape(8.dp))
-                                .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
-                                .clickable {
-                                    clipboardManager.setText(AnnotatedString(generatedTrialKey))
-                                }
-                                .padding(12.dp)
+                        Text(
+                            text = "جهت تست دستی با شماره تلفن‌های گوناگون، شماره موبایل را وارد کرده تا کلید رمزنگاری شده AES-256 متناظر تولید گردد:",
+                            fontSize = 11.sp,
+                            color = textMuted,
+                            lineHeight = 18.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = testMobileInput,
+                            onValueChange = { testMobileInput = it },
+                            label = { Text("شماره همراه کلاینت", color = textMuted, fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = goldClr,
+                                unfocusedBorderColor = cardBorder,
+                                focusedTextColor = textPrimary,
+                                unfocusedTextColor = textPrimary,
+                                focusedContainerColor = selectionBg,
+                                unfocusedContainerColor = selectionBg
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                generatedTrialKey = viewModel.generateTestKey(testMobileInput)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = selectionBg),
+                            modifier = Modifier.align(Alignment.End),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Column {
+                            Text("دریافت لایسنس سفارشی", color = goldClr, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        if (generatedTrialKey.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(if (isDarkMode) Color(0xFF090C12) else Color(0xFFFAF7F3), RoundedCornerShape(8.dp))
+                                    .border(1.dp, cardBorder, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        clipboardManager.setText(AnnotatedString(generatedTrialKey))
+                                    }
+                                    .padding(10.dp)
+                            ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("کد لایسنس اختصاصی رمز شده:", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Bold)
-                                    Icon(imageVector = Icons.Default.ContentCopy, contentDescription = "کپی", tint = textMuted, modifier = Modifier.size(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("کلید تولید شده (جهت کپی):", fontSize = 10.sp, color = goldClr, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = generatedTrialKey,
+                                            fontSize = 9.5.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = textPrimary,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "کپی",
+                                        tint = textMuted,
+                                        modifier = Modifier.size(16.dp).padding(start = 4.dp)
+                                    )
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = generatedTrialKey,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = textPrimary,
-                                    maxLines = 3,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 }
@@ -362,6 +598,7 @@ fun VipDashboardScreen(
     userMobile: String,
     expiryDate: String
 ) {
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
     val allStocks by viewModel.allStocks.collectAsState()
     val vipSignals by viewModel.vipSignals.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -390,10 +627,24 @@ fun VipDashboardScreen(
     var editedSmartAlertTarget by remember(smartAlertTarget) { mutableStateOf(smartAlertTarget.toString()) }
     var isSettingsExpanded by remember { mutableStateOf(false) }
     var showQuantAuditDialog by remember { mutableStateOf(false) }
+    var showStepByStepGuide by remember { mutableStateOf(false) }
+    var showVisualTutorialSheet by remember { mutableStateOf(false) }
 
     if (showQuantAuditDialog) {
         QuantAuditDebugDialog(viewModel = viewModel) {
             showQuantAuditDialog = false
+        }
+    }
+
+    if (showStepByStepGuide) {
+        StepByStepGuideDialog(isDarkMode = isDarkMode) {
+            showStepByStepGuide = false
+        }
+    }
+
+    if (showVisualTutorialSheet) {
+        VisualTutorialDialog(isDarkMode = isDarkMode) {
+            showVisualTutorialSheet = false
         }
     }
 
@@ -417,8 +668,6 @@ fun VipDashboardScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     // Colors mapping to support both beautiful Light & Dark modes
-    val isDarkMode by viewModel.isDarkMode.collectAsState()
-    
     val backgroundCol = if (isDarkMode) DarkBackground else Color(0xFFFAF8F5) // Soft premium sand-cream
     val surfaceCol = if (isDarkMode) DarkSurface else Color(0xFFFFFFFF)       // Elegant card surface
     val surfaceVariantCol = if (isDarkMode) DarkSurfaceVariant else Color(0xFFF3EFE9) // Beige sand-variant
@@ -573,11 +822,11 @@ fun VipDashboardScreen(
                                 tint = textCol
                             )
                         }
-                        IconButton(onClick = { viewModel.fetchMarketData() }) {
+                        IconButton(onClick = { showStepByStepGuide = true }) {
                             Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "به‌روزرسانی داده‌ها",
-                                tint = textCol
+                                imageVector = Icons.Default.HelpOutline,
+                                contentDescription = "راهنمای قدم به قدم (Tips)",
+                                tint = goldAccent
                             )
                         }
                         IconButton(onClick = { viewModel.deactivateApp() }) {
@@ -614,7 +863,7 @@ fun VipDashboardScreen(
                         selected = currentTab == 3,
                         onClick = { currentTab = 3 },
                         label = { Text("تنظیمات و شبکه داده", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 3) goldAccent else mutedCol) },
-                        icon = { Icon(Icons.Default.Person, contentDescription = null, tint = if (currentTab == 3) goldAccent else mutedCol) }
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = if (currentTab == 3) goldAccent else mutedCol) }
                     )
                 }
             }
@@ -704,12 +953,12 @@ fun VipDashboardScreen(
                                                 imageVector = Icons.Default.Star,
                                                 contentDescription = null,
                                                 tint = goldAccent,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(18.dp)
                                             )
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = "کاربر VIP متصل به سرور بورس",
-                                                fontSize = 14.sp,
+                                                text = "کاربری ویژه VIP بورس من",
+                                                fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = textCol
                                             )
@@ -720,8 +969,8 @@ fun VipDashboardScreen(
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Text(
-                                                text = "VIP ویژه",
-                                                fontSize = 10.sp,
+                                                text = "اشتراک فعال بومی",
+                                                fontSize = 9.sp,
                                                 color = goldAccent,
                                                 fontWeight = FontWeight.Bold
                                             )
@@ -729,259 +978,171 @@ fun VipDashboardScreen(
                                     }
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
-                                        text = "لایسنس سخت‌افزاری فعال روی تلفن همراه: $userMobile",
-                                        fontSize = 12.sp,
+                                        text = "تلفن همراه فعالساز: $userMobile",
+                                        fontSize = 11.sp,
                                         color = textCol
                                     )
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "مدت اشتراک آفلاین/آنلاین نامحدود تا تاریخ مجمع سال بعد: $expiryDate",
-                                        fontSize = 11.sp,
+                                        text = "اعتبار اشتراک تا تاریخ مجمع سال بعد: $expiryDate",
+                                        fontSize = 10.sp,
                                         color = mutedCol
                                     )
                                 }
                             }
 
-                            // Dynamic Live Connection Switch Card
-                            Card(
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Search Field
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = mutedCol) },
+                                placeholder = { Text("جستجوی نام نماد یا سهم (فزر، بوعلی، شتران...)", fontSize = 11.sp, color = mutedCol) },
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
-                                border = BorderStroke(1.dp, borderCol)
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = surfaceCol,
+                                    focusedContainerColor = surfaceCol,
+                                    unfocusedBorderColor = borderCol,
+                                    focusedBorderColor = goldAccent,
+                                    unfocusedTextColor = textCol,
+                                    focusedTextColor = textCol
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                maxLines = 1
+                            )
+
+                            // Quick Filter Tabs
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(surfaceCol, RoundedCornerShape(12.dp))
+                                    .border(1.dp, borderCol, RoundedCornerShape(12.dp))
+                                    .padding(4.dp)
                             ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "تغییر منبع داده‌های بورس",
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = textCol
-                                            )
-                                            Text(
-                                                text = if (useLiveCrawler) "اتصال مستقیم کراولر زنده به tsetmc.com" else "پایگاه داده آفلاین پشتیبان (تطبیق مرکزی با بورس تهران)",
-                                                fontSize = 11.sp,
-                                                color = mutedCol
-                                            )
-                                        }
-                                        Switch(
-                                            checked = useLiveCrawler,
-                                            onCheckedChange = { viewModel.toggleLiveCrawler(it) },
-                                            colors = SwitchDefaults.colors(
-                                                checkedThumbColor = goldAccent,
-                                                checkedTrackColor = goldAccent.copy(alpha = 0.4f)
-                                            )
-                                        )
-                                    }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (showVipOnly) goldAccent else Color.Transparent)
+                                        .clickable { showVipOnly = true }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "فقط سیگنال‌های VIP (${vipSignals.size})",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (showVipOnly) backgroundCol else mutedCol
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (!showVipOnly) goldAccent else Color.Transparent)
+                                        .clickable { showVipOnly = false }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "کل بازار (${allStocks.size})",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (!showVipOnly) backgroundCol else mutedCol
+                                    )
                                 }
                             }
 
-                            // CBI inflation data crawler verification module
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Payout Speed Filter component
                             Card(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                                 colors = CardDefaults.cardColors(containerColor = surfaceCol),
                                 border = BorderStroke(1.dp, borderCol)
                             ) {
-                                val cbiCrawlStatus by viewModel.cbiCrawlStatus.collectAsState()
-                                val cbiCrawlTimestamp by viewModel.cbiCrawlTimestamp.collectAsState()
-                                val cbiIsLive by viewModel.cbiIsLive.collectAsState()
-                                val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.Public,
-                                                contentDescription = null,
-                                                tint = goldSecondaryAccent,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "موتور کراولر متمرکز بانک مرکزی (CBI)",
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = textCol
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    if (cbiIsLive) StockGreen.copy(alpha = 0.15f) else goldSecondaryAccent.copy(alpha = 0.15f),
-                                                    RoundedCornerShape(4.dp)
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = if (cbiIsLive) "اتصال زنده بانک" else "انطباق لوکال",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (cbiIsLive) StockGreen else goldSecondaryAccent
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        text = "این کراولر خودکار با تارنمای رسمی بانک مرکزی جمهوری اسلامی تعامل کرده تا آخرین آمارهای کلان تورم سالیانه و نقطه به نقطه کشور را استعلام کند و با بازده نقدی مجامع تطبیق دهد.",
+                                        text = "📅 فیلتر مجامع بر اساس مهلت قانونی واریز نقدی سود سجا (نقدشوندگی سریع):",
                                         fontSize = 11.sp,
-                                        color = mutedCol,
-                                        lineHeight = 16.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "آخرین وضعیت موتور بانک مرکزی: $cbiCrawlStatus",
-                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
                                         color = textCol,
-                                        fontWeight = FontWeight.Medium
+                                        modifier = Modifier.padding(bottom = 8.dp)
                                     )
-                                    if (cbiCrawlTimestamp.isNotEmpty()) {
-                                        Text(
-                                            text = "زمان استعلام خودکار مراجع: $cbiCrawlTimestamp",
-                                            fontSize = 9.sp,
-                                            color = mutedCol
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Button(
-                                            onClick = { viewModel.refreshCbiInflation() },
-                                            colors = ButtonDefaults.buttonColors(containerColor = goldSecondaryAccent),
-                                            modifier = Modifier.weight(1f).height(36.dp),
-                                            contentPadding = PaddingValues(0.dp)
-                                        ) {
-                                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("استعلام آنلاین بانک 🔄", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-
-                                        Button(
-                                            onClick = { uriHandler.openUri("https://cbi.ir/Inflation/Inflation_FA.aspx") },
-                                            colors = ButtonDefaults.buttonColors(containerColor = surfaceVariantCol),
-                                            modifier = Modifier.weight(1f).height(36.dp),
-                                            contentPadding = PaddingValues(0.dp)
-                                        ) {
-                                            Icon(Icons.Default.Launch, contentDescription = null, modifier = Modifier.size(14.dp), tint = goldAccent)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("رؤیت سند واقعی تورم 📰", fontSize = 10.sp, color = goldAccent, fontWeight = FontWeight.Bold)
+                                        val delays = listOf(
+                                            1 to "زیر ۱ ماه",
+                                            2 to "کمتر ۲ ماه",
+                                            3 to "زیر ۳ ماه",
+                                            4 to "کل بازار"
+                                        )
+                                        delays.forEach { (months, label) ->
+                                            val isSelected = selectedMaxPayoutDelayMonths == months
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isSelected) goldAccent.copy(alpha = 0.15f) else surfaceVariantCol)
+                                                    .border(1.5.dp, if (isSelected) goldAccent else Color.Transparent, RoundedCornerShape(8.dp))
+                                                    .clickable { selectedMaxPayoutDelayMonths = months }
+                                                    .padding(vertical = 8.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = label,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) goldAccent else mutedCol
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            // Notification log systems
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
-                                border = BorderStroke(1.dp, borderCol)
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.NotificationsActive,
-                                                contentDescription = null,
-                                                tint = StockGreen,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "پایشگر پیام بورس و هشدار مجمع",
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = textCol
-                                            )
-                                        }
-                                        Text(
-                                            text = "هدف بازده: $smartAlertTarget٪",
-                                            fontSize = 10.sp,
-                                            color = StockRed,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Text(
-                                        text = "پایشگر مجمع در مدهای پس‌زمینه سهام آماده تقسیم سود بالای $smartAlertTarget٪ مجمع را ردیابی کرده و نوتیفیکیشن اندروید صادر می‌کند.",
-                                        fontSize = 11.sp,
-                                        color = mutedCol,
-                                        lineHeight = 16.sp
-                                    )
+                        // Feed of dynamic card items
+                        if (isLoading) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    CircularProgressIndicator(color = goldAccent)
                                     Spacer(modifier = Modifier.height(12.dp))
+                                    Text(text = "در حال اتصال به tsetmc و دریافت آخرین وضعیت سهام تهران...", fontSize = 11.sp, color = mutedCol)
+                                }
+                            }
+                        } else {
+                            val baseList = if (showVipOnly) vipSignals else allStocks
+                            val delayFilteredList = baseList.filter { it.paymentDelayMonths <= selectedMaxPayoutDelayMonths }
+                            val filteredList = if (searchQuery.trim().isEmpty()) {
+                                delayFilteredList
+                            } else {
+                                delayFilteredList.filter { it.symbol.contains(searchQuery.trim()) || it.name.contains(searchQuery.trim()) || it.sector.contains(searchQuery.trim()) }
+                            }
 
-                                    Button(
-                                        onClick = {
-                                            val threshold = smartAlertTarget
-                                            val highYieldStocks = allStocks.filter { it.totalReturnPotential >= threshold }
-                                            if (highYieldStocks.isNotEmpty()) {
-                                                highYieldStocks.take(1).forEach { item ->
-                                                    viewModel.triggerLocalNotification(item.symbol, item.totalReturnPotential)
-                                                }
-                                            } else {
-                                                viewModel.triggerLocalNotification("کشف طلایی مجمع بورس", 39.5f)
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = if (notificationLog.isNotEmpty()) StockGreen.copy(alpha = 0.15f) else surfaceVariantCol),
-                                        border = BorderStroke(1.dp, if (notificationLog.isNotEmpty()) StockGreen else borderCol),
-                                        modifier = Modifier.fillMaxWidth()
+                            if (filteredList.isEmpty()) {
+                                item {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.NotificationsActive,
-                                            contentDescription = null,
-                                            tint = if (notificationLog.isNotEmpty()) StockGreen else textCol,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "تست پایش خودکار نوتیفیکیشن مجمع",
-                                            fontSize = 11.sp,
-                                            color = if (notificationLog.isNotEmpty()) StockGreen else textCol,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    if (notificationLog.isNotEmpty()) {
+                                        Icon(Icons.Default.SearchOff, contentDescription = null, tint = mutedCol, modifier = Modifier.size(48.dp))
                                         Spacer(modifier = Modifier.height(12.dp))
-                                        Divider(color = borderCol)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "📯 پیام‌های اخیر موتور پایشگر مجمع بورس:",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = StockGreen
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            notificationLog.take(4).forEach { log ->
-                                                Text(
-                                                    text = log,
-                                                    fontSize = 10.sp,
-                                                    color = textCol,
-                                                    lineHeight = 14.sp,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .background(surfaceVariantCol.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                                                        .padding(8.dp)
-                                                        .testTag("notification_bubble")
-                                                )
-                                            }
-                                        }
+                                        Text(text = "نمادی مطابق فیلتر شما در بورس یافت نشد.", fontSize = 12.sp, color = mutedCol)
                                     }
+                                }
+                            } else {
+                                items(filteredList) { stock ->
+                                    SignalCardView(stock = stock, userMobile = userMobile, viewModel = viewModel, onShowGuide = { showStepByStepGuide = true })
+                                    Spacer(modifier = Modifier.height(12.dp))
                                 }
                             }
                         }
@@ -1320,166 +1481,109 @@ fun VipDashboardScreen(
                                         ),
                                         modifier = Modifier.height(28.dp).padding(vertical = 2.dp)
                                     )
-                                }
-                            }
 
-                            // Search Field
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = mutedCol) },
-                                placeholder = { Text("جستجوی نام نماد یا سهم (فزر، بوعلی، شتران...)", fontSize = 11.sp, color = mutedCol) },
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = surfaceCol,
-                                    focusedContainerColor = surfaceCol,
-                                    unfocusedBorderColor = borderCol,
-                                    focusedBorderColor = goldAccent,
-                                    unfocusedTextColor = textCol,
-                                    focusedTextColor = textCol
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                maxLines = 1
-                            )
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    HorizontalDivider(color = borderCol.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
 
-                            // Quick Filter Tabs
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(surfaceCol, RoundedCornerShape(12.dp))
-                                    .border(1.dp, borderCol, RoundedCornerShape(12.dp))
-                                    .padding(4.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (showVipOnly) goldAccent else Color.Transparent)
-                                        .clickable { showVipOnly = true }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "فقط سیگنال‌های VIP (${vipSignals.size})",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (showVipOnly) backgroundCol else mutedCol
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (!showVipOnly) goldAccent else Color.Transparent)
-                                        .clickable { showVipOnly = false }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "کل بازار (${allStocks.size})",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (!showVipOnly) backgroundCol else mutedCol
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Payout Speed Filter component
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
-                                border = BorderStroke(1.dp, borderCol)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(
-                                        text = "📅 فیلتر مجامع بر اساس مهلت قانونی واریز نقدی سود سجا (نقدشوندگی سریع):",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textCol,
-                                        modifier = Modifier.padding(bottom = 8.dp)
-                                     )
-                                     Row(
-                                         modifier = Modifier.fillMaxWidth(),
-                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                     ) {
-                                         val delays = listOf(
-                                             1 to "زیر ۱ ماه",
-                                             2 to "کمتر ۲ ماه",
-                                             3 to "زیر ۳ ماه",
-                                             4 to "کل بازار"
-                                         )
-                                         delays.forEach { (months, label) ->
-                                             val isSelected = selectedMaxPayoutDelayMonths == months
-                                             Box(
-                                                 modifier = Modifier
-                                                     .weight(1f)
-                                                     .clip(RoundedCornerShape(8.dp))
-                                                     .background(if (isSelected) goldAccent.copy(alpha = 0.15f) else surfaceVariantCol)
-                                                     .border(1.5.dp, if (isSelected) goldAccent else Color.Transparent, RoundedCornerShape(8.dp))
-                                                     .clickable { selectedMaxPayoutDelayMonths = months }
-                                                     .padding(vertical = 8.dp),
-                                                 contentAlignment = Alignment.Center
-                                             ) {
-                                                 Text(
-                                                     text = label,
-                                                     fontSize = 10.sp,
-                                                     fontWeight = FontWeight.Bold,
-                                                     color = if (isSelected) goldAccent else mutedCol
-                                                 )
-                                             }
-                                         }
-                                     }
-                                 }
-                             }
-
-                             Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        // Feed of dynamic card items
-                        if (isLoading) {
-                            item {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    CircularProgressIndicator(color = goldAccent)
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(text = "در حال اتصال به tsetmc و دریافت آخرین وضعیت سهام تهران...", fontSize = 11.sp, color = mutedCol)
-                                }
-                            }
-                        } else {
-                            val baseList = if (showVipOnly) vipSignals else allStocks
-                            val delayFilteredList = baseList.filter { it.paymentDelayMonths <= selectedMaxPayoutDelayMonths }
-                            val filteredList = if (searchQuery.trim().isEmpty()) {
-                                delayFilteredList
-                            } else {
-                                delayFilteredList.filter { it.symbol.contains(searchQuery.trim()) || it.name.contains(searchQuery.trim()) || it.sector.contains(searchQuery.trim()) }
-                            }
-
-                            if (filteredList.isEmpty()) {
-                                item {
-                                    Column(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    // Educational calibration guidelines in premium Persian
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(goldAccent.copy(alpha = 0.05f), RoundedCornerShape(10.dp))
+                                            .border(1.dp, goldAccent.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.Top
                                     ) {
-                                        Icon(Icons.Default.SearchOff, contentDescription = null, tint = mutedCol, modifier = Modifier.size(48.dp))
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Text(text = "نمادی مطابق فیلتر شما در بورس یافت نشد.", fontSize = 12.sp, color = mutedCol)
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = "راهنمای کالیبراسیون",
+                                            tint = goldAccent,
+                                            modifier = Modifier.size(16.dp).padding(top = 1.dp)
+                                        )
+                                        Column {
+                                            Text(
+                                                text = "💡 راهنمای کالیبراسیون تخصصی و بهره‌وری سود مجمع:",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = goldAccent
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "۱. سود نقدی (DPS): میانگین بازده نقدی مجامع بورس ایران ۱۰ تا ۱۵ درصد است. قرار دادن کف سود بالای ۱۵٪ به شما کمک می‌کند شرکت‌های بسیار متعهد را فیلتر کنید.\n" +
+                                                       "۲. پتانسیل رشد ارزش فنی: حداقل پتانسیلی است که سهم از خود مجمع تا چند ماه بعد دارد تا افت ارزش ریال را خنثی کند. ترکیب هوشمندانه این دو اهرم، «حفاظت دارایی در برابر تورم ۳۸٪» بورس را کاملاً تضمین می‌کند.",
+                                                fontSize = 9.sp,
+                                                color = mutedCol,
+                                                lineHeight = 15.sp
+                                            )
+                                        }
                                     }
                                 }
-                            } else {
-                                items(filteredList) { stock ->
-                                    SignalCardView(stock = stock, userMobile = userMobile, viewModel = viewModel)
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
                             }
+
+                            // Tab 1 will handle the list feed
                         }
                     }
 
                     // TAB 3: ACCOUNT, AI SETTINGS & LOCAL SIMULATION OVERRIDES
                     if (currentTab == 3) {
+                        item {
+                            // 📱 Premium Visual Walkthrough & Interactive Screenshot Tutorial Card
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp)
+                                    .clickable { showVisualTutorialSheet = true },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = goldAccent.copy(alpha = 0.08f)
+                                ),
+                                border = BorderStroke(1.2.dp, goldAccent.copy(alpha = 0.4f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .background(goldAccent.copy(alpha = 0.15f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = goldAccent,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "📱 آکادمی تصویری و راهنمای قدم‌به‌قدم VIP",
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = goldAccent
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "آموزش تصویری کاربری و راهنمای قدم‌به‌قدم مجمع‌یاب هوشمند",
+                                            fontSize = 9.5.sp,
+                                            color = mutedCol,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack, // Persian RTL Arrow Back pointing outward
+                                        contentDescription = null,
+                                        tint = goldAccent,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+
                         item {
                             // Hardware Fingerprint Switcher Card
                             Card(
@@ -1647,7 +1751,7 @@ fun VipDashboardScreen(
                                         OutlinedTextField(
                                             value = editedModelName,
                                             onValueChange = { editedModelName = it },
-                                            placeholder = { Text("gemini-2.5-flash", fontSize = 11.sp, color = mutedCol) },
+                                            placeholder = { Text("gemini-3.5-flash", fontSize = 11.sp, color = mutedCol) },
                                             modifier = Modifier.fillMaxWidth(),
                                             maxLines = 1,
                                             colors = OutlinedTextFieldDefaults.colors(
@@ -1824,6 +1928,153 @@ fun VipDashboardScreen(
                                     }
                                 }
                             }
+
+                            // 🔄 Diagnostic, Cache Clearance & Synchronizer Card (Direct Customer requested Reset / Cache and Deep-Sync Suite)
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                                colors = CardDefaults.cardColors(containerColor = surfaceCol),
+                                border = BorderStroke(1.dp, borderCol)
+                            ) {
+                                var syncStatus by remember { mutableStateOf("") }
+
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            tint = goldAccent,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "عیب‌یابی، بازسازی حافظه کش و به‌روزرسانی داده‌ها",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textCol
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "در صورت بروز نوسانات مجمع، تغییرات فرضی اشتباه یا منقضی شدن داده‌ها، از کنترل‌های سیستمی زیر جهت ترمیم کلاینت و همگام‌سازی مجدد استفاده کنید:",
+                                        fontSize = 10.sp,
+                                        color = mutedCol,
+                                        lineHeight = 15.sp
+                                    )
+
+                                    if (syncStatus.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(goldAccent.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                                .border(1.dp, goldAccent.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                                .padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = StockGreen,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = syncStatus,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = textCol
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // Action 1: Refresh Bourse Data pipeline
+                                    Button(
+                                        onClick = {
+                                            syncStatus = "در حال اتصال به وب سرویس بورس و بازخوانی اطلاعات..."
+                                            viewModel.fetchMarketData()
+                                            syncStatus = "✅ اطلاعات بورس تهران با موفقیت بازخوانی و به‌روز شد."
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = surfaceVariantCol,
+                                            contentColor = textCol
+                                        ),
+                                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = null,
+                                            tint = goldAccent,
+                                            modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                        )
+                                        Text(
+                                            text = "به‌روزرسانی اجباری و دریافت زنده اطلاعات مجمع هم‌اکنون",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Action 2: Clear Application state / Calibration defaults
+                                    Button(
+                                        onClick = {
+                                            viewModel.clearCacheAndDefaults()
+                                            syncStatus = "✅ کش کلاینت پاک شد! تنظیمات کالیبراسیون به پیش‌فرض بازگشت."
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = surfaceVariantCol,
+                                            contentColor = textCol
+                                        ),
+                                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Cached,
+                                            contentDescription = null,
+                                            tint = goldAccent,
+                                            modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                        )
+                                        Text(
+                                            text = "پاکسازی و بازنشانی حافظه موقت کش کلاینت",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Action 3: Hard destructive factory reset
+                                    Button(
+                                        onClick = {
+                                            viewModel.performHardFactoryReset()
+                                            syncStatus = "🔥 بازنشانی کامل انجام شد! پایگاه داده SQLite مجدداً سازماندهی گردید."
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = StockRed.copy(alpha = 0.12f),
+                                            contentColor = StockRed
+                                        ),
+                                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                                        border = BorderStroke(1.dp, StockRed.copy(alpha = 0.3f)),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteForever,
+                                            contentDescription = null,
+                                            tint = StockRed,
+                                            modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                        )
+                                        Text(
+                                            text = "پاکسازی دیتابیس بورس و ریست فکتوری (Factory Reset)",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -1898,7 +2149,7 @@ fun TabButton(
 
 @OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingViewModel) {
+fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingViewModel, onShowGuide: () -> Unit) {
     val aiResultMap by viewModel.aiAnalysisResult.collectAsState()
     val aiLoadingMap by viewModel.aiAnalysisLoading.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
@@ -1995,38 +2246,23 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     )
                 }
 
-                // Growth badge & Calculator icon
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Clean growth badge (no nested click)
+                Box(
+                    modifier = Modifier
+                        .background(
+                            (if (isPositive) StockGreen else StockRed).copy(alpha = 0.12f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .border(
+                            1.dp,
+                            (if (isPositive) StockGreen else StockRed).copy(alpha = 0.4f),
+                            RoundedCornerShape(6.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                            .border(1.5.dp, goldClr.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                            .clickable { showCalcDialog = true }
-                            .padding(horizontal = 6.dp, vertical = 3.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = "محاسبه مجمع",
-                                tint = goldClr,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "🧮 ماشین‌حساب بازدهی مجمع",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = goldClr
-                            )
-                        }
-                    }
-
                     Text(
                         text = (if (isPositive) "+" else "") + String.format(Locale.US, "%.2f", stock.changePercent) + "%",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = colorText
                     )
@@ -2341,38 +2577,46 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     }
 
                     // --- 🧮 Inline Stock Calculator Card ---
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = goldClr.copy(alpha = 0.05f)),
+                        modifier = Modifier.fillMaxWidth().testTag("inline_stock_calculator_card"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = goldClr.copy(alpha = 0.04f)),
                         border = BorderStroke(1.2.dp, goldClr.copy(alpha = 0.4f))
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Header Row
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Analytics,
-                                    contentDescription = null,
-                                    tint = goldClr,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "ماشین‌حساب هوشمند سود نو مجمع (${stock.symbol})",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textPrimary
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Analytics,
+                                        contentDescription = null,
+                                        tint = goldClr,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "ماشین‌حساب هوشمند سود نو مجمع (${stock.symbol})",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textPrimary
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = "پیش‌بینی دقیق کارمزد خرید بورس، قیمت تمام‌شده مواجهه مجمع، سود نقدی تقسیمی و برآورد سهام جایزه فزر، شپدیس و ...",
-                                fontSize = 9.sp,
-                                color = textMuted
+                                fontSize = 10.sp,
+                                color = textMuted,
+                                lineHeight = 14.sp
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             OutlinedTextField(
                                 value = investmentAmountText,
@@ -2380,6 +2624,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                 label = { Text("مبلغ سرمایه‌گذاری مورد نظر (میلیون تومان)", fontSize = 11.sp, color = textMuted) },
                                 modifier = Modifier.fillMaxWidth(),
                                 maxLines = 1,
+                                shape = RoundedCornerShape(12.dp),
                                 suffix = { Text("میلیون تومان", fontSize = 10.sp, color = textMuted) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 leadingIcon = {
@@ -2389,7 +2634,9 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                     unfocusedBorderColor = cardBorder,
                                     focusedBorderColor = goldClr,
                                     unfocusedTextColor = textPrimary,
-                                    focusedTextColor = textPrimary
+                                    focusedTextColor = textPrimary,
+                                    focusedLabelColor = goldClr,
+                                    unfocusedLabelColor = textMuted
                                 )
                             )
 
@@ -2398,7 +2645,7 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                             // Shortcut buttons
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 listOf(
                                     "۱۰" to "۱۰ میلیون",
@@ -2406,31 +2653,36 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                     "۱۰۰" to "۱۰۰ میلیون",
                                     "۵۰۰" to "۵۰۰ میلیون"
                                 ).forEach { (valStr, label) ->
+                                    val isSelected = investmentAmountText == valStr
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
                                             .background(
-                                                if (investmentAmountText == valStr) goldClr else itemBg,
-                                                RoundedCornerShape(6.dp)
+                                                if (isSelected) goldClr else goldClr.copy(alpha = 0.05f),
+                                                RoundedCornerShape(8.dp)
                                             )
-                                            .border(1.dp, if (investmentAmountText == valStr) goldClr else cardBorder, RoundedCornerShape(6.dp))
+                                            .border(
+                                                1.dp,
+                                                if (isSelected) goldClr else cardBorder,
+                                                RoundedCornerShape(8.dp)
+                                            )
                                             .clickable { investmentAmountText = valStr }
-                                            .padding(vertical = 6.dp),
+                                            .padding(vertical = 8.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = label,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (investmentAmountText == valStr) Color(0xFF0C0E14) else textPrimary
+                                            color = if (isSelected) Color(0xFF0C0E14) else textPrimary
                                         )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
                             Divider(color = dividerColor, thickness = 1.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             // Compute values
                             val cleanNumInline = investmentAmountText.replace(Regex("[^0-9.]"), "")
@@ -2461,97 +2713,136 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                             val finalCapitalValueVal = netPurchaseAmountVal * (1.0 + stock.totalReturnPotential / 100.0)
                             val netCompoundProfitVal = finalCapitalValueVal - actualTomanValueVal
 
-                            // Details Grid
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // Visual Grid Layout (2x2)
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text("کارمزد خرید کارگزاری (۰.۳۷٪ قانون بورس):", fontSize = 10.sp, color = textMuted)
-                                    Text("${formatPrice(commissionFeeVal.toLong())} تومان", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    // Item: Shares count (A)
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(itemBg, RoundedCornerShape(10.dp))
+                                            .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("تعداد کل برگ سهام:", fontSize = 9.sp, color = textMuted)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("${formatPrice(sharesCountVal)} برگه سهم", fontSize = 12.sp, color = textPrimary, fontWeight = FontWeight.Bold)
+                                    }
+                                    
+                                    // Item: Real cost basis (B)
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(itemBg, RoundedCornerShape(10.dp))
+                                            .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("قیمت تمام شده (با کارمزد):", fontSize = 9.sp, color = textMuted)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("${formatPrice(costBasisPerShareVal.toLong())} تومان", fontSize = 12.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                    }
                                 }
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text("تعداد کل برگ سهام قابل خرید:", fontSize = 10.sp, color = textMuted)
-                                    Text("${formatPrice(sharesCountVal)} برگه سهم", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.Bold)
+                                    // Item: Brokerage fee (C)
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(itemBg, RoundedCornerShape(10.dp))
+                                            .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("کارمزد خرید کارگزاری (۰.۳۷٪):", fontSize = 9.sp, color = textMuted)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("${formatPrice(commissionFeeVal.toLong())} تومان", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    // Item: Table Price (D)
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .background(itemBg, RoundedCornerShape(10.dp))
+                                            .border(1.dp, cardBorder, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("قیمت جاری روی تابلو بورس:", fontSize = 9.sp, color = textMuted)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("${formatPrice(sharePriceTomanVal)} تومان", fontSize = 11.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    }
                                 }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("قیمت تمام شده هر برگ سهم (با کارمزد):", fontSize = 10.sp, color = textMuted)
-                                    Text("${formatPrice(costBasisPerShareVal.toLong())} تومان", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Bold)
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("قیمت جاری روی تابلو TSETMC:", fontSize = 10.sp, color = textMuted)
-                                    Text("${formatPrice(sharePriceTomanVal)} تومان", fontSize = 11.sp, color = textPrimary)
-                                }
-
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Divider(color = dividerColor.copy(alpha = 0.5f), thickness = 1.dp)
 
-                                Text(
-                                    text = "📊 پیش‌بینی نهایی سرمایه و دریافتی‌های مجمع:",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = goldClr
-                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "📊 پیش‌بینی دریافتی‌ها و بازدهی نهایی مجمع:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr,
+                                        modifier = Modifier.padding(vertical = 2.dp)
+                                    )
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(StockGreen.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                                        .padding(6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.TrendingUp, contentDescription = null, tint = StockGreen, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("عایدی خالص نقدی سود مجمع (Sajam):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    // Payout Ribbon 1: sajams dividend
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(StockGreen.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                            .border(1.dp, StockGreen.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = StockGreen, modifier = Modifier.size(16.dp))
+                                            Text("عایدی خالص نقدی سود مجمع (Sajam):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        Text("${formatPrice(totalCashDividendVal.toLong())} تومان", fontSize = 12.sp, color = StockGreen, fontWeight = FontWeight.Black)
                                     }
-                                    Text("${formatPrice(totalCashDividendVal.toLong())} تومان", fontSize = 11.sp, color = StockGreen, fontWeight = FontWeight.Black)
-                                }
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                                        .padding(6.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Star, contentDescription = null, tint = goldClr, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("سهام جایزه اعطایی رایگان مجمع ($capIncreasePercentVal%):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                    // Payout Ribbon 2: bonus shares
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                            .border(1.dp, goldClr.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Default.Star, contentDescription = null, tint = goldClr, modifier = Modifier.size(16.dp))
+                                            Text("سهام جایزه اعطایی رایگان مجمع ($capIncreasePercentVal%):", fontSize = 10.sp, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                                        }
+                                        Text("${formatPrice(bonusSharesCountVal)} برگه سهم جایزه", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Black)
                                     }
-                                    Text("${formatPrice(bonusSharesCountVal)} برگه سهم جایزه", fontSize = 11.sp, color = goldClr, fontWeight = FontWeight.Black)
-                                }
 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
-                                        .border(1.dp, goldClr, RoundedCornerShape(6.dp))
-                                        .padding(8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column {
-                                        Text("ارزش کل دارایی و سودها بعد از یک سال:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimary)
-                                        Text("شامل اصل سرمایه + سود نهایی مرکب مجمع", fontSize = 8.sp, color = textMuted)
-                                    }
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("${formatPrice(finalCapitalValueVal.toLong())} تومان", fontSize = 13.sp, color = textPrimary, fontWeight = FontWeight.Black)
-                                        Text("(+${formatPrice(netCompoundProfitVal.toLong())} عایدی مرکب)", fontSize = 10.sp, color = StockGreen, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    // Payout Ribbon 3: Total Asset Value Compound (The luxurious finish highlight!)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(goldClr.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                            .border(1.2.dp, goldClr, RoundedCornerShape(10.dp))
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("ارزش کل دارایی و سودها بعد از یک سال:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                            Text("شامل اصل سرمایه + سود نهایی مرکب مجمع", fontSize = 8.sp, color = textMuted)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text("${formatPrice(finalCapitalValueVal.toLong())} تومان", fontSize = 14.sp, color = textPrimary, fontWeight = FontWeight.Black)
+                                            Text("(+${formatPrice(netCompoundProfitVal.toLong())} عایدی مرکب)", fontSize = 10.sp, color = StockGreen, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
                             }
@@ -2947,10 +3238,22 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                             android.widget.Toast.makeText(context, "گزارش زنده تلگرامی کپی شد!", android.widget.Toast.LENGTH_SHORT).show()
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D9BF0)),
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(8.dp)
+                                        modifier = Modifier.weight(1.1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("کپی تلگرام 📢", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.ContentCopy,
+                                                contentDescription = "کپی",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text("کپی تلگرام", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
                                     }
 
                                     Button(
@@ -2959,19 +3262,43 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                         modifier = Modifier.weight(1.2f),
-                                        shape = RoundedCornerShape(8.dp)
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("📥 دانلود PDF", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.PictureAsPdf,
+                                                contentDescription = "PDF",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Text("دانلود PDF", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
                                     }
 
                                     Button(
-                                        onClick = { viewModel.analyzeStockWithAI(stock.symbol, stock) },
-                                        colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.15f)),
+                                        onClick = onShowGuide,
+                                        colors = ButtonDefaults.buttonColors(containerColor = goldClr.copy(alpha = 0.12f)),
                                         border = BorderStroke(1.dp, goldClr),
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(8.dp)
+                                        modifier = Modifier.weight(1.1f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
-                                        Text("بروزرسانی 🔄", fontSize = 9.sp, color = goldClr)
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.HelpOutline,
+                                                contentDescription = "راهنمای قدم به قدم",
+                                                tint = goldClr,
+                                                modifier = Modifier.size(12.dp)
+                                             )
+                                             Text("پوشه راهنما", fontSize = 9.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                        }
                                     }
                                 }
                             }
@@ -3523,9 +3850,21 @@ fun AiAnalysisDemoDialog(
                             },
                             modifier = Modifier.weight(1.3f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D9BF0)), // Telegram Blue brand color
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text("کپی فرمت تلگرام 📢", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "کپی",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text("کپی تلگرام", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                         }
 
                         Button(
@@ -3535,24 +3874,577 @@ fun AiAnalysisDemoDialog(
                             },
                             modifier = Modifier.weight(1.3f),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)), // PDF Green
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text("📥 گزارش PDF", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PictureAsPdf,
+                                    contentDescription = "PDF",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text("گزارش PDF", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                         }
 
                         Button(
                             onClick = onDismiss,
                             colors = ButtonDefaults.buttonColors(containerColor = goldClr),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text("بستن و خروج", fontSize = 10.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "بستن",
+                                    tint = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text("بستن", fontSize = 10.sp, color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun StepByStepGuideDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
+    var currentStep by remember { mutableStateOf(1) }
+    val totalSteps = 4
+
+    val goldClr = if (isDarkMode) GoldPrimary else Color(0xFFB39256)
+    val textPrimary = if (isDarkMode) Color(0xFFF5F3EF) else Color(0xFF1F1B18)
+    val textMuted = if (isDarkMode) SlateTextSecondary else Color(0xFF6B6259)
+    val bgCol = if (isDarkMode) Color(0xFF11141E) else Color(0xFFFFFFFF)
+    val borderCol = if (isDarkMode) BorderColor else Color(0xFFDFD9D0)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = goldClr,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = "راهنمای گام‌به‌گام پلتفرم مجمع‌یاب VIP",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = goldClr
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Progress counter
+                Box(
+                    modifier = Modifier
+                        .background(goldClr.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "گام $currentStep از $totalSteps",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = goldClr
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                AnimatedContent(
+                    targetState = currentStep,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(300)) with fadeOut(animationSpec = tween(300))
+                    },
+                    label = "GuideStepTransition"
+                ) { step ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        when (step) {
+                            1 -> {
+                                Text(
+                                    text = "۱. پایشگر و فیلتر پیشرفته مجامع 📊",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "جدول اصلی برنامه لیستی از نمادهای برتر بورس با مجامع نزدیک را نمایش می‌دهد. شما می‌توانید با فیلتر هوشمند فقط نمادهای VIP (با بازده سود مجمع بالا)، سودهای زود واریز (زیر ۴ ماه) یا ارزش رشد فنی مناسب را به سرعت تفکیک کنید.",
+                                    fontSize = 11.sp,
+                                    color = textMuted,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                            2 -> {
+                                Text(
+                                    text = "۲. ارزیابی ریسک و کلاس ایمنی مجمع ⚖️",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "هر مجمع دارای یک «کلاس تعهد ایمنی» (مثل رتبه A یا B) است. این رتبه بر اساس تاریخچه نحوه تسویه سود مجمع شرکت در کُدال و واریز سریع از بستر سجام مشخص شده است تا با اطمینان خاطر سرمایه‌گذاری کنید.",
+                                    fontSize = 11.sp,
+                                    color = textMuted,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                            3 -> {
+                                Text(
+                                    text = "۳. گزارش زنده تحلیلی تلگرام و PDF 🤖",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "با کلیک بر روی گزینه «تحلیل VIP با هوش مصنوعی»، جمنای گزارش جامعی صادر می‌کند. با زدن دکمه «کپی تلگرام»، یک متن آماده به همراه جزئیات برای کانال‌های تلگرامی کپی می‌شود. دکمه «گزارش PDF» نیز یک خلاصه زیبا با رنگ‌های کلاسیک و تمیز برای ذخیره آفلاین صادر می‌نماید.",
+                                    fontSize = 11.sp,
+                                    color = textMuted,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                            4 -> {
+                                Text(
+                                    text = "۴. ماشین‌حساب تخصصی کوانت 🧮",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = textPrimary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "در انتهای اطلاعات هر سهم، ماشین حساب خودکار قرار داده شده است. با وارد کردن تعداد سهام خود، میزان خالص سود نقدی واریزی سجام شما پس از مجمع فوراً همراه با تعداد سهام جایزه احتمالی محاسبه شده و اثر تورمی آن سنجیده می‌شود.",
+                                    fontSize = 11.sp,
+                                    color = textMuted,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (currentStep > 1) {
+                    TextButton(onClick = { currentStep-- }) {
+                        Text("گام قبلی", color = goldClr, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                if (currentStep < totalSteps) {
+                    Button(
+                        onClick = { currentStep++ },
+                        colors = ButtonDefaults.buttonColors(containerColor = goldClr),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("گام بعدی", color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = goldClr),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("فهمیدم، بستن", color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        containerColor = bgCol,
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun VisualTutorialDialog(isDarkMode: Boolean, onDismiss: () -> Unit) {
+    var activeSlide by remember { mutableStateOf(1) }
+    val totalSlides = 4
+
+    val goldClr = if (isDarkMode) GoldPrimary else Color(0xFFB39256)
+    val textPrimary = if (isDarkMode) Color(0xFFF5F3EF) else Color(0xFF1F1B18)
+    val textMuted = if (isDarkMode) SlateTextSecondary else Color(0xFF6B6259)
+    val bgCol = if (isDarkMode) Color(0xFF0F121C) else Color(0xFFFFFFFF)
+    val cardBg = if (isDarkMode) Color(0xFF161A26) else Color(0xFFF9F7F3)
+    val borderCol = if (isDarkMode) BorderColor else Color(0xFFDFD9D0)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = goldClr,
+                    modifier = Modifier.size(22.dp)
+                )
+                Text(
+                    text = "آکادمی تصویری VIP Bourse",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = goldClr
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Horizontal Slide Indicator Dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 1..totalSlides) {
+                        Box(
+                            modifier = Modifier
+                                .size(if (i == activeSlide) 18.dp else 8.dp, 8.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (i == activeSlide) goldClr else borderCol.copy(alpha = 0.4f))
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Simulated Mobile Phone Screen Container representing the Screenshot
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(cardBg)
+                        .border(1.5.dp, goldClr.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                        .padding(12.dp)
+                ) {
+                    AnimatedContent(
+                        targetState = activeSlide,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(400)) with fadeOut(animationSpec = tween(400))
+                        },
+                        label = "ScreenshotTransition"
+                    ) { slide ->
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            when (slide) {
+                                1 -> {
+                                    // Slide 1: TABLE MOCKUP
+                                    Text(
+                                        text = "📱 نمای مجمع‌یاب و فیلترهای نخبگان",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    // Draw a beautiful simulated stock row
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(bgCol, RoundedCornerShape(10.dp))
+                                            .border(1.dp, borderCol.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                Box(
+                                                    modifier = Modifier.background(goldClr.copy(alpha = 0.15f), CircleShape).padding(4.dp)
+                                                ) {
+                                                    Text("فزر", fontSize = 10.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                                }
+                                                Column {
+                                                    Text("پویا زرکان آق‌دره", fontSize = 9.sp, color = textPrimary)
+                                                    Text("مجمع: ۱۴۰۵/۰۴/۱۵", fontSize = 8.sp, color = textMuted)
+                                                }
+                                            }
+                                            // Royal indicator
+                                            Box(
+                                                modifier = Modifier.background(Color(0xFF2E7D32).copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(4.dp)
+                                            ) {
+                                                Text("کلاس تعهد: A+", fontSize = 8.sp, color = Color(0xFF4ADE80), fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("سود پیش‌بینی نقدی (DPS): ۸۹٪", fontSize = 8.sp, color = textMuted)
+                                            Text("روز تا مجمع: ۱۴ روز", fontSize = 8.sp, color = Color.Red.copy(alpha = 0.8f))
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    // Explanation tool-tip pointing to it
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFF2196F3).copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = Color(0xFF2196F3), modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "کلاس تعهد مجمع نشان‌دهنده سرعت تسویه سود سهامداران بوسیله سجام در مجامع قبلی است.",
+                                            fontSize = 9.sp,
+                                            color = textPrimary,
+                                            lineHeight = 13.sp
+                                        )
+                                    }
+                                }
+                                2 -> {
+                                    // Slide 2: GEMINI AI & PDF EXPORTS
+                                    Text(
+                                        text = "🤖 گزارش هوشمند و خروجی‌های تلگرام/PDF",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    // Draw simulated report screen
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(bgCol, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("گزارش تحلیلی VIP مجمع فاملی توسط جمنای 💎", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("«شرکت ملی صنایع مس با حاشیه سود بالا و تعهد پرداخت ۷۲ روزه سجام ارزیابی عالی دارد.»", fontSize = 8.sp, color = textMuted)
+                                        
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.weight(1f).background(Color(0xFF1D9BF0), RoundedCornerShape(6.dp)).padding(6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("کپی تلگرام 📢", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
+                                            Box(
+                                                modifier = Modifier.weight(1f).background(Color(0xFF2E7D32), RoundedCornerShape(6.dp)).padding(6.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text("دانلود PDF 📥", fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(goldClr.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null, tint = goldClr, modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "با یک کلیک متن کپی شده را مستقیماً در کانال‌های تلگرامی قرار دهید یا گزارش مانیتورینگ PDF بسازید.",
+                                            fontSize = 9.sp,
+                                            color = textPrimary,
+                                            lineHeight = 13.sp
+                                        )
+                                    }
+                                }
+                                3 -> {
+                                    // Slide 3: COUANT QUANT CALCULATOR MOCKUP
+                                    Text(
+                                        text = "🧮 ماشین‌حساب مدرن کوانت و اثرات تورمی",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    // Draw calculator UI mockup
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(bgCol, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("مبلغ سرمایه‌گذاری فرضی:", fontSize = 8.sp, color = textMuted)
+                                            Text("۱۰۰,۰۰۰,۰۰۰ تومان", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                        }
+                                        Divider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.2f))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("خالص سود نقدی مجمع (ریال):", fontSize = 8.sp, color = textMuted)
+                                            Text("۱۲,۵۰۰,۰۰۰ تومان (۱۲.۵٪)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4ADE80))
+                                        }
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("شاخص موازنه تورم سال:", fontSize = 8.sp, color = textMuted)
+                                            Text("ضمانت خرید ۳۸٪ تورم", fontSize = 8.sp, color = goldClr, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFF4ADE80).copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Savings, contentDescription = null, tint = Color(0xFF4ADE80), modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "محاسبه خودکار ارزش ریالی سود نقدی مجمع، تعداد سهام جایزه اضافه و کارمزدهای خرید کارگزاری.",
+                                            fontSize = 9.sp,
+                                            color = textPrimary,
+                                            lineHeight = 13.sp
+                                        )
+                                    }
+                                }
+                                4 -> {
+                                    // Slide 4: OFFLINE DATABASE PORTFOLIO
+                                    Text(
+                                        text = "🗄️ ذخیره‌سازی آفلاین و کالیبراسیون الگوها",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = goldClr
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    // Draw Database portfolio mockup
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(bgCol, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text("📁 سبد فرضی سفارشی مجامع من (مستقیم در SQLite)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = textPrimary)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("شرکت‌های با فرضیه سود مجمع اصلاح شده توسط شما به شکل آفلاین نگهداری می‌شوند.", fontSize = 8.sp, color = textMuted)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth().background(goldClr.copy(alpha = 0.12f), RoundedCornerShape(6.dp)).padding(4.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("بازیابی الگوها و ذخیره‌سازی مراجع بورس بومی", fontSize = 8.sp, color = goldClr)
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFFE91E63).copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+                                            .padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = Color(0xFFE91E63), modifier = Modifier.size(14.dp))
+                                        Text(
+                                            text = "کالیبراسیون و ذخیره محلی Room این امکان را می‌دهد تا تحلیل کلان بورس را بدون نیاز به پهنای باند شبکه انجام دهید.",
+                                            fontSize = 9.sp,
+                                            color = textPrimary,
+                                            lineHeight = 13.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Explain text below screenshot mockup
+                Text(
+                    text = when (activeSlide) {
+                        1 -> "💡 در جدول فیلترها، کلاس تعهد 'A' یعنی تسویه سریع سود زیر ۷۰ روز. با کالیبراسیون نرخ‌ها شانس خود را دو چندان کنید."
+                        2 -> "💡 متن خروجی تلگرام ساختار آماده مارک‌داون دارد و کپی مستقیم در پیام‌رسان‌ها را آسان می‌کند."
+                        3 -> "💡 با تغییر حجم سهام در ماشین‌حساب، سود خالص تخمینی شما بر اساس کسر کارمزد دقیق سپرده‌گذاری محاسبه می‌شود."
+                        else -> "💡 پورتفوی فرضی بومی شما در محیط مجمع‌یاب کاملاً آفلاین و رمزنگاری شده روی حافظه داخلی ذخیره می‌گردد."
+                    },
+                    fontSize = 10.sp,
+                    color = textMuted,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (activeSlide > 1) {
+                    TextButton(onClick = { activeSlide-- }) {
+                        Text("گام قبلی", color = goldClr, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                if (activeSlide < totalSlides) {
+                    Button(
+                        onClick = { activeSlide++ },
+                        colors = ButtonDefaults.buttonColors(containerColor = goldClr),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("گام بعدی", color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = goldClr),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("تکمیل آموزش تصویری", color = if (isDarkMode) Color(0xFF0C0E14) else Color(0xFFFFFFFF), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        containerColor = bgCol,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable

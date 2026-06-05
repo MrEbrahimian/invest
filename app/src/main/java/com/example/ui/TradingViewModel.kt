@@ -88,7 +88,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
     private val _geminiCustomUrl = MutableStateFlow(sharedPrefs.getString("gemini_custom_url", "https://generativelanguage.googleapis.com/") ?: "https://generativelanguage.googleapis.com/")
     val geminiCustomUrl: StateFlow<String> = _geminiCustomUrl.asStateFlow()
 
-    private val _geminiModelName = MutableStateFlow(sharedPrefs.getString("gemini_model_name", "gemini-2.5-flash") ?: "gemini-2.5-flash")
+    private val _geminiModelName = MutableStateFlow(sharedPrefs.getString("gemini_model_name", "gemini-3.5-flash") ?: "gemini-3.5-flash")
     val geminiModelName: StateFlow<String> = _geminiModelName.asStateFlow()
 
     private val _expectedSha256 = MutableStateFlow(sharedPrefs.getString("expected_sha256", "BYPASS") ?: "BYPASS")
@@ -347,7 +347,7 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
      */
     fun saveGeminiSettings(key: String, url: String, model: String) {
         val cleanUrl = if (url.trim().endsWith("/")) url.trim() else "${url.trim()}/"
-        val cleanModel = model.trim().ifBlank { "gemini-2.5-flash" }
+        val cleanModel = model.trim().ifBlank { "gemini-3.5-flash" }
         _geminiApiKey.value = key.trim()
         _geminiCustomUrl.value = cleanUrl
         _geminiModelName.value = cleanModel
@@ -1021,6 +1021,78 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
         }
 
         return Triple(masterScore.coerceIn(0f, 100f), inflationHedgeRating, countdownText)
+    }
+
+    /**
+     * Wipes all cache, resets custom user-defined formula overrides, and restores default values.
+     */
+    fun clearCacheAndDefaults() {
+        viewModelScope.launch {
+            try {
+                // 1. Reset values in preferences
+                sharedPrefs.edit()
+                    .putFloat("inflation_rate", 48.3f)
+                    .putFloat("inflation_rate_p2p", 53.9f)
+                    .putFloat("bank_income_rate", 30.0f)
+                    .putFloat("smart_alert_target", 35.0f)
+                    .putFloat("min_dps_yield_target", 12.0f)
+                    .putFloat("min_growth_target", 15.0f)
+                    .putString("screening_severity", "HIGH")
+                    .apply()
+
+                // 2. Clear state flows
+                _inflationRate.value = 48.3f
+                _inflationRatePointToPoint.value = 53.9f
+                _bankIncomeRate.value = 30.0f
+                _smartAlertTarget.value = 35.0f
+                _minDpsYieldTarget.value = 12.0f
+                _minGrowthTarget.value = 15.0f
+                _screeningSeverity.value = "HIGH"
+
+                // 3. Clear temporary discrepancy logs
+                database.quantDao().deleteAllDiscrepancyLogs()
+
+                fetchMarketData()
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Complete hard factory reset of all underlying tables and preferences
+     */
+    fun performHardFactoryReset() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // Clear all tables in local database
+                database.clearAllTables()
+                
+                // Clear all configurations in SharedPrefs
+                sharedPrefs.edit().clear().apply()
+                
+                // Reset all StateFlows
+                _inflationRate.value = 48.3f
+                _inflationRatePointToPoint.value = 53.9f
+                _bankIncomeRate.value = 30.0f
+                _smartAlertTarget.value = 35.0f
+                _minDpsYieldTarget.value = 12.0f
+                _minGrowthTarget.value = 15.0f
+                _screeningSeverity.value = "HIGH"
+                _isBiometricEnabled.value = false
+                _isDarkMode.value = true
+                _useLiveCrawler.value = false
+                _activationError.value = null
+                _isActivated.value = false
+                _userMobile.value = ""
+                _expiryDate.value = ""
+                
+                // Fetch fresh stock signals (which defaults to using mock crawler and seeds everything cleanly)
+                fetchMarketData()
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     /**
