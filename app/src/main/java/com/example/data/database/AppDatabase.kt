@@ -13,9 +13,13 @@ import androidx.room.RoomDatabase
         DividendEntity::class,
         CorporateActionEntity::class,
         QuantMetricsEntity::class,
-        DiscrepancyLogEntity::class
+        DiscrepancyLogEntity::class,
+        MarketDataHistoryEntity::class,
+        DerivedMetricsHistoryEntity::class,
+        CorporateEvent::class,
+        ShareStructureHistoryEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

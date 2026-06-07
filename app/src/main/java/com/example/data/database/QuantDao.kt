@@ -61,4 +61,26 @@ interface QuantDao {
 
     @Query("DELETE FROM discrepancy_logs")
     suspend fun deleteAllDiscrepancyLogs()
+
+    // 7. Corporate Events
+    @Query("SELECT * FROM corporate_events WHERE symbol = :symbol ORDER BY eventTimestamp ASC")
+    suspend fun getCorporateEventsForSymbol(symbol: String): List<CorporateEvent>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCorporateEvent(event: CorporateEvent)
+
+    // 8. Market Data History
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMarketDataHistory(history: MarketDataHistoryEntity)
+
+    // 9. Derived Metrics History
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDerivedMetricsHistory(history: DerivedMetricsHistoryEntity)
+
+    // 10. Share Structure History
+    @Query("SELECT * FROM share_structure_history WHERE symbol = :symbol AND effective_timestamp <= :timestamp ORDER BY effective_timestamp DESC LIMIT 1")
+    suspend fun getLatestShareStructure(symbol: String, timestamp: Long): ShareStructureHistoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShareStructureHistory(shareHistory: ShareStructureHistoryEntity)
 }

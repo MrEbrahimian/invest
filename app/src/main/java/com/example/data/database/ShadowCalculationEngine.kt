@@ -55,8 +55,8 @@ class ShadowCalculationEngine {
         val diffRatio = abs(manualPe - reportedPe) / reportedPe
         val diffPercent = diffRatio * 100f
 
-        val needsReview = diffRatio > 0.03f
-        val isSuspended = diffRatio > 0.05f
+        val needsReview = diffPercent > 5f
+        val isSuspended = diffPercent > 10f
 
         val (color, msg) = when {
             isSuspended -> {

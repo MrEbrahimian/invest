@@ -67,3 +67,45 @@ data class DiscrepancyLogEntity(
     val status: String = "Needs Review", // "Needs Review", "Approved", "Ignored"
     val message: String
 )
+
+@Entity(tableName = "market_data_history", primaryKeys = ["symbol", "timestamp"])
+data class MarketDataHistoryEntity(
+    val symbol: String,
+    val price: Long,
+    val eps: Int,
+    val pe: Float,
+    val volume: Long,
+    val tradingStatus: String,
+    val timestamp: Long
+)
+
+@Entity(tableName = "derived_metrics_history", primaryKeys = ["symbol", "timestamp"])
+data class DerivedMetricsHistoryEntity(
+    val symbol: String,
+    val timestamp: Long,
+    val roa: Float,
+    val debtRatio: Float,
+    val profitMargin: Float,
+    val integrityScore: Float,
+    val theoreticalPrice: Double,
+    val dividendScore: Float
+)
+
+@Entity(tableName = "corporate_events")
+data class CorporateEvent(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val symbol: String,
+    val eventType: String, // "DIVIDEND", "CAPITAL_INCREASE_RETAINED", "CAPITAL_INCREASE_CASH", "CAPITAL_INCREASE_REVALUATION"
+    val eventRatio: Double,
+    val cashAmount: Double,
+    val sourceType: String,
+    val eventTimestamp: Long,
+    val reference: String
+)
+
+@Entity(tableName = "share_structure_history", primaryKeys = ["symbol", "effective_timestamp"])
+data class ShareStructureHistoryEntity(
+    val symbol: String,
+    val shares: Long,
+    val effective_timestamp: Long
+)

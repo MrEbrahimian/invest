@@ -995,39 +995,77 @@ class TradingViewModel(application: Application) : AndroidViewModel(application)
                     )
 
                     // Let's implement Part 3 & 4 - Quant Audit & Data Validation additions:
-                    var validatedPrice = baseSignal.price
+                    val events = kotlinx.coroutines.runBlocking {
+                        database.quantDao().getCorporateEventsForSymbol(baseSignal.symbol)
+                    }.toMutableList()
+
+                    // Safe fallback if history is empty, using baseline indicators
+                    if (events.isEmpty()) {
+                        if (baseSignal.dps > 0) {
+                            events.add(com.example.data.database.CorporateEvent(
+                                symbol = baseSignal.symbol,
+                                eventType = "DIVIDEND",
+                                eventRatio = 0.0,
+                                cashAmount = baseSignal.dps.toDouble(),
+                                sourceType = "سود انباشته",
+                                eventTimestamp = System.currentTimeMillis() - 10000,
+                                reference = "Fallback Trigger"
+                            ))
+                        }
+                        if (baseSignal.capIncreasePercent > 0) {
+                            events.add(com.example.data.database.CorporateEvent(
+                                symbol = baseSignal.symbol,
+                                eventType = "CAPITAL_INCREASE_FALLBACK",
+                                eventRatio = baseSignal.capIncreasePercent.toDouble() / 100.0,
+                                cashAmount = 0.0,
+                                sourceType = "افزایش سرمایه",
+                                eventTimestamp = System.currentTimeMillis() - 5000,
+                                reference = "Fallback Trigger"
+                            ))
+                        }
+                    }
+
+                    // 1. Calculate sequential oriented theoretical price
+                    val orderedTheoreticalPrice = com.example.data.database.QuantUpgradeEngine.calculateOrderedTheoreticalPrice(
+                        pOld = baseSignal.yesterdayPrice.toDouble().coerceAtLeast(1.0),
+                        events = events
+                    )
+
+                    // 2. Measure overall system confidence (0-1 Normalized scaling)
+                    val confidenceObj = com.example.data.database.QuantUpgradeEngine.calculateMarketConfidence(
+                        marketPrice = baseSignal.price.toDouble(),
+                        theoreticalPrice = orderedTheoreticalPrice,
+                        lastUpdatedTimestampMs = baseSignal.lastCodalSyncTime
+                    )
+
+                    // 3. Selection of display price based on safety layering
+                    val safeChosenPrice = com.example.data.database.QuantUpgradeEngine.selectDisplayPrice(
+                        rawPrice = baseSignal.price,
+                        theoreticalPrice = orderedTheoreticalPrice,
+                        confidenceScore = confidenceObj.finalScore,
+                        isAuditSuspended = baseSignal.isAuditSuspended
+                    )
+
+                    var validatedPrice = safeChosenPrice
                     var validatedPriceLabel = "قیمت بازار"
                     var validatedWarning = ""
                     var validatedDpsSource = "سود نقدی مصوب"
 
-                    // 1. check status STOPPED or SUSPENDED
-                    if (baseSignal.status == "STOPPED" || baseSignal.status == "SUSPENDED") {
-                        val capRatio = baseSignal.capIncreasePercent / 100f
-                        val theoreticalPrice = if (capRatio > 0f) {
-                            ((baseSignal.price - baseSignal.dps).coerceAtLeast(0L).toFloat() / (1f + capRatio)).toLong()
-                        } else {
-                            baseSignal.price
-                        }
-
-                        // Compare unadjusted price with theoretical price
-                        val priceDiffPct = if (theoreticalPrice > 0) {
-                            kotlin.math.abs(baseSignal.price - theoreticalPrice).toFloat() / theoreticalPrice
-                        } else 0f
-
-                        if (priceDiffPct > 0.05f) {
-                            validatedPriceLabel = "قیمت تئوریک (تعدیل شده)"
-                            validatedPrice = theoreticalPrice
-                            validatedWarning = "نماد متوقف است؛ قیمت نمایش داده شده محاسباتی است."
-                        }
+                    if (confidenceObj.finalScore < 0.6 || baseSignal.isAuditSuspended) {
+                        validatedPriceLabel = "قیمت تئوریک (تعدیل شده)"
+                        validatedWarning = "کالیبراسیون داده: انحراف قیمت بازار بیش از سقف مطمئن کوانت است."
+                    } else if (baseSignal.status == "STOPPED" || baseSignal.status == "SUSPENDED") {
+                        validatedPriceLabel = "قیمت تئوریک (متوقف)"
+                        validatedWarning = "نماد متوقف است؛ قیمت نمایش داده شده محاسباتی است."
                     }
 
-                    // 2. Validate P/E
+                    // 4. Validate P/E
                     val calculatedPe = if (baseSignal.eps > 0) validatedPrice.toFloat() / baseSignal.eps else 0f
                     if (kotlin.math.abs(calculatedPe - baseSignal.pe) > 0.1f) {
                         // Under-the-hood indicator check complete
                     }
 
-                    // 3. Control DPS
+                    // 5. Control DPS
                     if (baseSignal.dps > baseSignal.eps) {
                         validatedDpsSource = "سود انباشته / تجدید ارزیابی"
                     }
