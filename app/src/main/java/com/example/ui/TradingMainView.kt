@@ -2588,142 +2588,224 @@ fun SignalCardView(stock: StockSignal, userMobile: String, viewModel: TradingVie
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // --- 🌟 Premium Quant Insight Card 🌟 ---
+                    val quantValue = if (stock.eps > 0) {
+                        (stock.eps * 6.5) + (stock.dps * 0.2)
+                    } else {
+                        stock.displayPrice * 0.92
+                    }
+                    val valueGap = (stock.displayPrice.toDouble() - quantValue) / quantValue
+                    val valueGapPercent = valueGap * 100.0
+
+                    val freshnessVal = (100.0 - (System.currentTimeMillis() - stock.lastCodalSyncTime) / 3600000.0 * 1.5).coerceIn(50.0, 100.0)
+                    val epsRecencyVal = 92.0
+                    val liquidityVal = (50.0 + (stock.volume.toDouble() / 250000.0).coerceAtMost(50.0))
+                    val stabilityVal = (70.0 + (stock.inflationHedgeRating * 5.0)).coerceIn(50.0, 100.0)
+                    val confidenceScore = ((freshnessVal + epsRecencyVal + liquidityVal + stabilityVal) / 4.0).toInt().coerceIn(0, 100)
+
+                    val insightText = when {
+                        valueGapPercent < -5.0 -> {
+                            val fwdEpsText = if (stock.eps > 0) " و سود پیش‌بینی‌شده ${(stock.eps * 1.15).toInt()} ریال" else ""
+                            "با P/E حدود ${String.format(Locale.US, "%.0f", stock.pe)}$fwdEpsText، سهم در محدوده ارزنده قرار دارد."
+                        }
+                        valueGapPercent > 5.0 -> {
+                            "قیمت بازار جلوتر از ارزش بنیادی حرکت کرده و حاشیه امنیت محدود است."
+                        }
+                        else -> {
+                            "قیمت بازار نزدیک به ارزش برآوردی و در محدوده تعادلی معامله می‌شود."
+                        }
+                    }
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (isDarkMode) Color(0xFF1B2232) else Color(0xFFFAF7F2)),
-                        border = BorderStroke(1.dp, goldClr.copy(alpha = 0.35f))
+                            .padding(vertical = 10.dp)
+                            .testTag("quant_insight_card"),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDarkMode) Color(0xFF141925) else Color(0xFFFBF9F6)
+                        ),
+                        border = BorderStroke(1.dp, goldClr.copy(alpha = 0.4f)),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            // Card Title / Header
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Analytics,
-                                    contentDescription = null,
+                                    contentDescription = "تحلیل هوشمند",
                                     tint = goldClr,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "ارزیابی هوشمند و تحلیل سود سهامدار (VIP)",
-                                    fontSize = 12.sp,
+                                    text = "کارت تحلیل ارزش (Quant Insight)",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textPrimary
                                 )
                             }
-                            
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // 1. Market Price vs Quant Estimated Value grid
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "قیمت بازار",
+                                        fontSize = 10.sp,
+                                        color = textMuted
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${formatPrice(stock.displayPrice)} ریال",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = textPrimary
+                                    )
+                                    Text(
+                                        text = "${formatPrice(stock.priceInToman)} تومان",
+                                        fontSize = 11.sp,
+                                        color = goldClr,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "ارزش برآوردی کوانت",
+                                        fontSize = 10.sp,
+                                        color = textMuted
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${formatPrice(quantValue.toLong())} ریال",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = goldClr
+                                    )
+                                    Text(
+                                        text = "${formatPrice(quantValue.toLong() / 10)} تومان",
+                                        fontSize = 11.sp,
+                                        color = textMuted,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
                             Spacer(modifier = Modifier.height(12.dp))
-                            
+
+                            // 3. Value Gap Indicator
+                            val gapAbs = kotlin.math.abs(valueGapPercent)
+                            val gapColor = when {
+                                gapAbs < 5.0 -> Color.Gray
+                                valueGapPercent < 0 -> StockGreen
+                                else -> StockRed
+                            }
+
+                            val gapLabel = when {
+                                gapAbs < 5.0 -> "بازار در محدوده تعادلی معامله می‌شود"
+                                valueGapPercent < 0 -> "بازار ${String.format(Locale.US, "%.0f", gapAbs)}٪ پایین‌تر از ارزش برآوردی معامله می‌شود"
+                                else -> "بازار ${String.format(Locale.US, "%.0f", gapAbs)}٪ بالاتر از ارزش برآوردی معامله می‌شود"
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(gapColor.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, gapColor.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                    .padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(gapColor, CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = gapLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = gapColor
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 4. One-Line Auto Insight (max 120 chars)
+                            Text(
+                                text = "بینش تحلیلی کوانت:",
+                                fontSize = 10.sp,
+                                color = textMuted,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = insightText,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = textPrimary,
+                                lineHeight = 16.sp,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Divider(color = dividerColor.copy(alpha = 0.5f), thickness = 1.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 5. Quant Confidence Badge
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // 1. Circular Gauge for Master Score
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.size(64.dp)
-                                    ) {
-                                        CircularProgressIndicator(
-                                            progress = 1f,
-                                            strokeWidth = 6.dp,
-                                            color = dividerColor.copy(alpha = 0.5f)
-                                        )
-                                        CircularProgressIndicator(
-                                            progress = stock.masterScore / 100f,
-                                            strokeWidth = 6.dp,
-                                            color = goldClr
-                                        )
-                                        Text(
-                                            text = "${stock.masterScore.toInt()}",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = textPrimary
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(
-                                        text = "امتیاز کلی کیفیت سهم (از ۱۰۰)",
-                                        fontSize = 9.sp,
-                                        color = textMuted,
-                                        textAlign = TextAlign.Center
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.VerifiedUser,
+                                        contentDescription = "اعتبار سنجی",
+                                        tint = if (confidenceScore >= 60) StockGreen else Color(0xFFFF9800),
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                }
-                                
-                                // 2. Shield Icons representing Inflation Hedge Rating
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.weight(1.3f)
-                                ) {
-                                    Row(horizontalArrangement = Arrangement.Center) {
-                                        for (i in 1..5) {
-                                            Icon(
-                                                imageVector = Icons.Default.Shield,
-                                                contentDescription = null,
-                                                tint = if (i <= stock.inflationHedgeRating) goldClr else dividerColor.copy(alpha = 0.3f),
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    val shieldLabel = when (stock.inflationHedgeRating) {
-                                        5 -> "سطح ۵: عایق ضد تورم کامل 🛡️"
-                                        4 -> "سطح ۴: سپر تورمی ویژه"
-                                        else -> "سطح ۳: بهینه‌سازی تورمی متوازن"
-                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = shieldLabel,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = goldClr,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Text(
-                                        text = "شاخص حفظ ارزش پول در برابر تورم",
-                                        fontSize = 8.sp,
-                                        color = textMuted,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Divider(color = dividerColor.copy(alpha = 0.3f), thickness = 1.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
-                            
-                            // 3. Dividend Countdown section
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(goldClr.copy(alpha = 0.08f), RoundedCornerShape(4.dp))
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.HourglassBottom,
-                                    contentDescription = null,
-                                    tint = goldClr,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "سرعت پرداخت نقدی مصوب کدال (سجام/پایا):",
-                                        fontSize = 10.sp,
-                                        color = textMuted
-                                    )
-                                    Text(
-                                        text = stock.dividendCountdownText,
+                                        text = "Quant Confidence: $confidenceScore%",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = textPrimary
+                                    )
+                                }
+                            }
+
+                            if (confidenceScore < 60) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFFFF9800).copy(alpha = 0.08f), RoundedCornerShape(6.dp))
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "اطلاع‌ رسانی",
+                                        tint = Color(0xFFFF9800),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "داده‌های بنیادی محدود است؛ تحلیل با اطمینان پایین انجام شده.",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFFF9800)
                                     )
                                 }
                             }
