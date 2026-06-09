@@ -1,6 +1,6 @@
 {
-  "name": "VIP Bourse",
-  "description": "Serverless VIP Trading Iranian Stock Market (TSETMC) Screener and Signals",
+  "name": "TSE Master",
+  "description": "TSE Master - Financial analysis and dividend intelligence tool for the Iranian stock market",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
