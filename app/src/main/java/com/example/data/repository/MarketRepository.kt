@@ -12,7 +12,12 @@ class MarketRepository(
     // Fetches live/mock API responses, maps them, and persists them into Room
     suspend fun refreshMarketData(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val dtos = apiService.fetchMarketData()
+            val dtos = try {
+                apiService.fetchMarketData()
+            } catch (apiEx: Exception) {
+                android.util.Log.w("MarketRepository", "Real API service failed; falling back to offline provider", apiEx)
+                MarketApiServiceImpl().fetchMarketData()
+            }
             val entities = MarketMapper.mapDtosToEntities(dtos)
             tseDao.insertStocks(entities)
             Result.success(Unit)

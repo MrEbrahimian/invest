@@ -61,23 +61,46 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_6 = object : Migration(2, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migrateToVersion6(db)
+            }
+        }
+
+        val MIGRATION_3_6 = object : Migration(3, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migrateToVersion6(db)
+            }
+        }
+
+        val MIGRATION_4_6 = object : Migration(4, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migrateToVersion6(db)
+            }
+        }
+
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 migrateToVersion6(db)
             }
         }
 
-        fun buildDatabase(context: Context): AppDatabase = Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "tse_vip_database"
-        )
-        .addMigrations(
-            MIGRATION_1_6,
-            MIGRATION_5_6
-        )
-        .fallbackToDestructiveMigrationFrom(1)
-        .build()
+        fun buildDatabase(context: Context): AppDatabase {
+            return Room.databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "tse_vip_database"
+            )
+            .addMigrations(
+                MIGRATION_1_6,
+                MIGRATION_2_6,
+                MIGRATION_3_6,
+                MIGRATION_4_6,
+                MIGRATION_5_6
+            )
+            .fallbackToDestructiveMigration()
+            .build()
+        }
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {

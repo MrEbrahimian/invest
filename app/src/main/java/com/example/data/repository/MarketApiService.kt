@@ -51,13 +51,13 @@ object RetrofitInstance {
 class MarketApiServiceImpl : MarketApiService {
     override suspend fun fetchMarketData(): List<StockDto> {
         return listOf(
-            StockDto("فزر", "پویا زرکان آق دره", 2200, 1950, 95000L, 1200000L, 4.31f, System.currentTimeMillis()),
-            StockDto("بوعلی", "پتروشیمی بوعلی سینا", 1120, 980, 56000L, 850000L, 5.0f, System.currentTimeMillis()),
-            StockDto("شتران", "پالایش نفت تهران", 380, 310, 15000L, 4500000L, 3.94f, System.currentTimeMillis()),
-            StockDto("فولاد", "فولاد مبارکه اصفهان", 120, 95, 4800L, 8500000L, 4.0f, System.currentTimeMillis()),
-            StockDto("خودرو", "ایران خودرو", -50, 0, 2600L, 12000000L, -5.2f, System.currentTimeMillis()),
-            StockDto("کگل", "معدنی صنعتی گل گهر", 610, 480, 28000L, 950000L, 4.59f, System.currentTimeMillis()),
-            StockDto("شپنا", "پالایش نفت اصفهان", 420, 360, 18500L, 3200000L, 4.4f, System.currentTimeMillis())
+            StockDto("شستا", "سرمایه‌گذاری تامین اجتماعی", 230, 195, 1260L, 102900000L, 5.5f, System.currentTimeMillis()),
+            StockDto("بوعلی", "پتروشیمی بوعلی سینا", 14620, 9000, 112630L, 15200000L, 7.7f, System.currentTimeMillis()),
+            StockDto("فزر", "پویا زرکان آق دره", 21610, 18000, 194500L, 3400000L, 9.0f, System.currentTimeMillis()),
+            StockDto("شتران", "پالایش نفت تهران", 420, 310, 2650L, 48000000L, 6.3f, System.currentTimeMillis()),
+            StockDto("خودرو", "ایران خودرو", -120, 0, 2800L, 24000000L, -23.3f, System.currentTimeMillis()),
+            StockDto("فولاد", "فولاد مبارکه اصفهان", 792, 480, 4120L, 54000000L, 5.2f, System.currentTimeMillis()),
+            StockDto("فملی", "ملی صنایع مس ایران", 1259, 900, 6800L, 36000000L, 5.4f, System.currentTimeMillis())
         )
     }
 

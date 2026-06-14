@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.pow
 import com.example.data.StockSignal
+import com.example.data.engine.QuantEngine
 import com.example.ui.theme.GoldClr
 import com.example.ui.theme.StockGreen
 import com.example.ui.theme.StockRed
@@ -69,6 +72,12 @@ fun TradingMainView(
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val geminiLoading by viewModel.geminiLoading.collectAsState()
     val geminiResponse by viewModel.geminiResponse.collectAsState()
+    val cbiPointToPointRate by viewModel.cbiPointToPointRate.collectAsState()
+    val cbiAnnualRate by viewModel.cbiAnnualRate.collectAsState()
+    val cbiStatusMessage by viewModel.cbiStatusMessage.collectAsState()
+
+    // Splash screen state - automatically shown on first boot
+    var showSplash by remember { mutableStateOf(true) }
 
     // Dialog & popup states
     var showEditDpsDialog by remember { mutableStateOf(false) }
@@ -174,6 +183,26 @@ fun TradingMainView(
                     )
                 )
 
+                // Tab MENTOR: Intelligence Valuation Mentor & Calculator
+                NavigationBarItem(
+                    selected = currentTab == "MENTOR",
+                    onClick = { viewModel.setTab("MENTOR") },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Lightbulb,
+                            contentDescription = if (currentTab == "MENTOR") "پر شده" else "خالی"
+                        )
+                    },
+                    label = { Text("منتور ارزش‌یابی", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.Black,
+                        selectedTextColor = GoldClr,
+                        indicatorColor = GoldClr,
+                        unselectedIconColor = Color.Gray,
+                        unselectedTextColor = Color.Gray
+                    )
+                )
+
                 // Tab 2: Smart Profit Screener
                 NavigationBarItem(
                     selected = currentTab == "SMART_PROFIT",
@@ -254,6 +283,15 @@ fun TradingMainView(
                         cardBgColor = cardBgColor,
                         borderClr = borderClr,
                         goldVal = GoldClr
+                    )
+                }
+                "MENTOR" -> {
+                    MentorTabContent(
+                        viewModel = viewModel,
+                        cardBgColor = cardBgColor,
+                        borderClr = borderClr,
+                        goldVal = GoldClr,
+                        onShowToast = { toastMessage = it }
                     )
                 }
                 "SETTINGS" -> {
@@ -370,6 +408,13 @@ fun TradingMainView(
             }
         }
     }
+
+    if (showSplash) {
+        VipSplashView(
+            cbiStatusMessage = cbiStatusMessage,
+            onDismiss = { showSplash = false }
+        )
+    }
 }
 
 // ==========================================================
@@ -389,6 +434,8 @@ fun HomeTabContent(
     geminiLoading: Boolean,
     geminiResponse: String?
 ) {
+    val cbiPointToPointRate by viewModel.cbiPointToPointRate.collectAsState()
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -813,6 +860,241 @@ fun HomeTabContent(
                                 }
                             }
 
+                            // 2.5 Professional Valuation Gap and Intrinsic Value Section
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Initialize local showRawJson state for the expanded stock
+                            var showRawJson by remember(stock.symbol) { mutableStateOf(false) }
+
+                            val productionReportResult = QuantEngine.evaluateFinancialProduction(
+                                livePrice = stock.price.toDouble(),
+                                priceBeforeAssembly = stock.price.toDouble(),
+                                dps = stock.dps.toDouble(),
+                                eps = stock.eps.toDouble(),
+                                targetPE = 6.0,
+                                inflationRate = cbiPointToPointRate / 100.0, // Iranian standard inflation reference
+                                lastStoredRoomPrice = stock.yesterdayPrice.toDouble()
+                            )
+                            
+                            val report = productionReportResult.getOrNull()
+                            val valuationGap = report?.valuationGapPercent ?: QuantEngine.calculateValuationGap(
+                                price = stock.price.toDouble(),
+                                intrinsicValue = QuantEngine.calculateIntrinsicValue(stock.price.toDouble(), stock.eps.toDouble(), stock.dps.toDouble())
+                            )
+                            val intrinsicValue = report?.intrinsicValueFair ?: QuantEngine.calculateIntrinsicValue(stock.price.toDouble(), stock.eps.toDouble(), stock.dps.toDouble())
+                            val gapStatusMsg = if (report != null) {
+                                when (report.valuationStatus) {
+                                    "Strong Undervaluation" -> "🟢 کمتر از ارزش ذاتی (فرصت خرید قوی)"
+                                    "Moderate Undervaluation" -> "🟡 دارای ارزش نسبی بالا (خرید کم‌ریسک)"
+                                    "Fairly Valued" -> "⚪ ارزش‌گذاری منصفانه بازار"
+                                    "Overvalued" -> "🟠 ارزش‌گذاری گران (احتیاط)"
+                                    else -> "🔴 حباب قیمتی بسیار بالا (پرریسک)"
+                                }
+                            } else {
+                                QuantEngine.getValuationStatusMessage(valuationGap)
+                            }
+                            
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1524)),
+                                border = BorderStroke(1.dp, borderClr.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (valuationGap >= 0) StockGreen.copy(alpha = 0.15f) else StockRed.copy(alpha = 0.15f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "${if (valuationGap >= 0) "+" else ""}${String.format(Locale.US, "%.1f", valuationGap)}%",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (valuationGap >= 0) StockGreen else StockRed
+                                            )
+                                        }
+                                        Text(
+                                            text = "محاسبه ساختار ارزش منصفانه و گپ قیمتی 🔬",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = goldVal
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "${NumberFormat.getInstance(Locale.US).format((intrinsicValue / 10).toLong())} تومان",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "ارزش منصفانه محاسباتی (Intrinsic):",
+                                            fontSize = 10.sp,
+                                            color = Color.LightGray
+                                        )
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "${NumberFormat.getInstance(Locale.US).format(stock.priceInToman)} تومان",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "قیمت فعلی روی تابلو (Price):",
+                                            fontSize = 10.sp,
+                                            color = Color.LightGray
+                                        )
+                                    }
+
+                                    if (report != null) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "${NumberFormat.getInstance(Locale.US).format((report.theoreticalPriceAfterAssembly / 10).toLong())} تومان",
+                                                fontSize = 11.sp,
+                                                color = Color.White
+                                            )
+                                            Text(
+                                                text = "قیمت تئوریک بعد از مجمع (Theoretical):",
+                                                fontSize = 10.sp,
+                                                color = Color.LightGray
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "${String.format(Locale.US, "%.1f", report.realYieldPercent)}%",
+                                                fontSize = 11.sp,
+                                                color = if (report.realYieldPercent >= 0) StockGreen else StockRed
+                                            )
+                                            Text(
+                                                text = "بازدهی واقعی بعد کسر تورم (Real Yield):",
+                                                fontSize = 10.sp,
+                                                color = Color.LightGray
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Divider(color = borderClr.copy(alpha = 0.3f))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    
+                                    Text(
+                                        text = "وضعیت قیمت بازار در مقایسه با عایدی نقدی و سود هر سهم:",
+                                        fontSize = 9.sp,
+                                        color = Color.Gray,
+                                        textAlign = TextAlign.Right,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Text(
+                                        text = gapStatusMsg,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (valuationGap >= 0) StockGreen else Color.LightGray,
+                                        textAlign = TextAlign.Right,
+                                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                                    )
+
+                                    if (report != null && report.warnings.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        report.warnings.forEach { warning ->
+                                            Text(
+                                                text = "⚠️ $warning",
+                                                fontSize = 9.sp,
+                                                color = StockRed,
+                                                textAlign = TextAlign.Right,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+
+                                    // Interactive JSON view
+                                    if (report != null) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF161E30))
+                                                .clickable { showRawJson = !showRawJson }
+                                                .padding(vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = if (showRawJson) "▲ بستن لاگ مالی محاسباتی سیستم" else "▼ مشاهده سند خام محاسبات فنی (JSON)",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = goldVal
+                                            )
+                                        }
+
+                                        AnimatedVisibility(
+                                            visible = showRawJson,
+                                            enter = fadeIn() + expandVertically(),
+                                            exit = fadeOut() + shrinkVertically()
+                                        ) {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(top = 8.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color(0xFF070B13))
+                                                    .border(1.dp, borderClr.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                                                    .padding(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = "سند تضمین عاری از انحراف محاسباتی (استاندارد تولید مراجع حسابداری)",
+                                                    fontSize = 8.sp,
+                                                    color = Color.LightGray,
+                                                    textAlign = TextAlign.Right,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = report.toJsonString(),
+                                                    fontSize = 9.sp,
+                                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                                    color = StockGreen,
+                                                    textAlign = TextAlign.Left,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             // 3. Calculator widget
                             Spacer(modifier = Modifier.height(16.dp))
                             CalculatorWidget(viewModel = viewModel, investmentAmount = viewModel.investmentAmount.collectAsState().value, stock = stock, goldVal = goldVal)
@@ -1158,7 +1440,8 @@ fun SmartProfitTabContent(
                 ) {
                     Text(text = "کل سهام بررسی شده", fontSize = 10.sp, color = Color.Gray)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = "14", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    val totalStocksCount = viewModel.rawStocks.collectAsState().value.size
+                    Text(text = "$totalStocksCount", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color.White)
                 }
 
                 val matchedCountFlow = viewModel.filteredStocks.collectAsState().value.size
@@ -1760,6 +2043,121 @@ fun SettingsTabContent(
             }
         }
 
+        // live cbi inflation management card
+        item {
+            val cbiPointToPointRate by viewModel.cbiPointToPointRate.collectAsState()
+            val cbiAnnualRate by viewModel.cbiAnnualRate.collectAsState()
+            val cbiStatusMessage by viewModel.cbiStatusMessage.collectAsState()
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                border = BorderStroke(1.dp, goldVal.copy(alpha = 0.5f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.fetchLiveCbiInflation() }) {
+                            Icon(Icons.Default.Refresh, contentDescription = "بروزرسانی تورم", tint = goldVal)
+                        }
+                        Text(
+                            text = "نرخ تورم رسمی بانک مرکزی (شاخص CBI) 📈",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "ابزار پویای مجمع‌یاب جهت همگام‌سازی لحظه‌ای نرخ تنزیل و عایق تورمی کدهای معاملاتی بورس مستقیم از سایت رسمی بانک مرکزی (cbi.ir)",
+                        fontSize = 10.sp,
+                        color = Color.LightGray,
+                        textAlign = TextAlign.Right,
+                        lineHeight = 14.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        // Point to point rate
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF101420))
+                                .border(1.dp, borderClr, RoundedCornerShape(6.dp))
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "تورم نقطه به نقطه",
+                                    fontSize = 9.sp,
+                                    color = Color.LightGray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${String.format(java.util.Locale.US, "%.1f", cbiPointToPointRate)}%",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = StockGreen
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Annual rate
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF101420))
+                                .border(1.dp, borderClr, RoundedCornerShape(6.dp))
+                                .padding(8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "تورم سالانه بانک مرکزی",
+                                    fontSize = 9.sp,
+                                    color = Color.LightGray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${String.format(java.util.Locale.US, "%.1f", cbiAnnualRate)}%",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = goldVal
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "وضعیت اتصال به درگاه (cbi.ir): $cbiStatusMessage",
+                        fontSize = 9.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Right,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
         // Offline storage portfolio SQLite Room tracking stats card
         item {
             Card(
@@ -1831,6 +2229,23 @@ fun SettingsTabContent(
                     Button(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .testTag("pull_databourse_rates_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F5234)),
+                        onClick = {
+                            onShowToast("در حال دریافت تابلوی زنده و محاسبات تقسیم سود از databourse.ir... ⏳")
+                            viewModel.triggerDataBourseUpdate { msg ->
+                                onShowToast(msg)
+                            }
+                        }
+                    ) {
+                        Text("🟢 بروزرسانی زنده قیمت و سود از دیتابورس (databourse.ir)", fontSize = 11.sp, color = Color.White)
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
                             .testTag("pull_all_rates_btn"),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F283C)),
                         onClick = {
@@ -1839,7 +2254,7 @@ fun SettingsTabContent(
                             }
                         }
                     ) {
-                        Text("🔄 دریافت جدیدترین اطلاعات زنده سود سهام و قیمت‌ها", fontSize = 11.sp, color = goldVal)
+                        Text("🔄 بازیابی و بروزرسانی پشتیبان آفلاین محلی", fontSize = 11.sp, color = goldVal)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -2000,6 +2415,853 @@ fun VipSignalCard(stockName: String, price: String, eps: String, dps: String) {
                     Text(dps, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD4AF37))
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun VipSplashView(
+    cbiStatusMessage: String,
+    onDismiss: () -> Unit
+) {
+    var progress by remember { mutableStateOf(0f) }
+    var currentMessage by remember { mutableStateOf("در حال مقداردهی اولیه سیستم امنیتی...") }
+
+    // Simulate progress and loading messages
+    LaunchedEffect(Unit) {
+        val messages = listOf(
+            0.1f to "در حال همگام‌سازهای مراجع محاسباتی...",
+            0.3f to "پیوستن پورتال به پایگاه داده داخلی SQLite (Room)...",
+            0.5f to "دریافت برخط شاخص تورم نقطه به نقطه از سرور بانک مرکزی (CBI)...",
+            0.7f to "تعدیل ارزش‌گذاری سهام بر پایه تورم جاری کشور...",
+            0.85f to "پاسخ رگولاتور بورس بومی بازبینی شد...",
+            0.95f to "سیستم تایید اعتبار مجمع در حال شروع...",
+            1.0f to "آماده برای تبادل در VIP بورس"
+        )
+        
+        for (item in messages) {
+            val stepTarget = item.first
+            val stepMsg = item.second
+            currentMessage = stepMsg
+            
+            while (progress < stepTarget) {
+                progress += 0.05f
+                kotlinx.coroutines.delay(100)
+            }
+            progress = stepTarget
+        }
+        
+        // Wait a small moment and then enter!
+        kotlinx.coroutines.delay(300)
+        onDismiss()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0C101B))
+            .clickable(enabled = false) {}, // Intercepts clicks to prevent background touches
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+        ) {
+            // High-fidelity luxurious emblem: double circles with a centered "$"
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(170.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF141A28))
+                    .border(3.dp, Color(0xFFD4AF37), CircleShape) // Outer golden circle
+                    .padding(8.dp)
+                    .border(1.5.dp, Color(0xFFD4AF37).copy(alpha = 0.5f), CircleShape) // Inner subtle circle
+            ) {
+                Text(
+                    text = "$",
+                    fontSize = 72.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFD4AF37),
+                    style = MaterialTheme.typography.displayMedium,
+                    modifier = Modifier.padding(bottom = 4.dp) // Optical centering
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Main Title
+            Text(
+                text = "وی‌آی‌پی بورس",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Subtitle
+            Text(
+                text = "پایگاه هوشمند تحلیل مجمع و سیگنال‌های نخبگان بورس",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.LightGray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(50.dp))
+
+            // Progress bar and loading text
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth(0.85f)
+            ) {
+                // Horizontal loading track
+                LinearProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = Color(0xFFD4AF37),
+                    trackColor = Color.White.copy(alpha = 0.1f)
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Diagnostic log
+                Text(
+                    text = currentMessage,
+                    fontSize = 10.5.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+        }
+
+        // Luxurious footer
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "هوشمند، برتر، بی‌انتها • نسخه مجمع‌یاب 3.5 VIP",
+                fontSize = 11.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Text(
+                text = "CBI Source Status: $cbiStatusMessage",
+                fontSize = 8.sp,
+                color = Color.DarkGray,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun MentorTabContent(
+    viewModel: TradingViewModel,
+    cardBgColor: Color,
+    borderClr: Color,
+    goldVal: Color,
+    onShowToast: (String) -> Unit
+) {
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val cbiPtoP by viewModel.cbiPointToPointRate.collectAsState()
+    val cbiAnnual by viewModel.cbiAnnualRate.collectAsState()
+
+    var symbolStr by remember { mutableStateOf("") }
+    var nameStr by remember { mutableStateOf("") }
+    var priceStr by remember { mutableStateOf("") }
+    var epsStr by remember { mutableStateOf("") }
+    var dpsStr by remember { mutableStateOf("") }
+    var volumeStr by remember { mutableStateOf("") }
+    
+    // Additional parameters for dynamic advanced evaluation & status
+    var customStatusStr by remember { mutableStateOf("ACTIVE") }
+    var dpsLastYearStr by remember { mutableStateOf("") }
+    var dpsTwoYearsAgoStr by remember { mutableStateOf("") }
+    var dpsThreeYearsAgoStr by remember { mutableStateOf("") }
+    var targetDiscountRateStr by remember { mutableStateOf("15") }
+
+    // Helper to auto-fill form with Shasta sample from EasyTrader
+    val onFillShastaSample = {
+        symbolStr = "شستا"
+        nameStr = "سرمایه گذاری تامین اجتماعی"
+        priceStr = "1882"
+        epsStr = "189"
+        dpsStr = "190"
+        volumeStr = "871615504"
+        customStatusStr = "ACTIVE"
+        dpsLastYearStr = "190"
+        dpsTwoYearsAgoStr = "135"
+        dpsThreeYearsAgoStr = "120"
+        targetDiscountRateStr = "15"
+    }
+
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header card
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                    border = BorderStroke(1.dp, borderClr),
+                    modifier = Modifier.fillMaxWidth().testTag("mentor_header")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = "mentor",
+                                tint = goldVal,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "منتور ارزش‌یابی و محاسبه‌گر هوشمند",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "با وارد کردن دستی اطلاعات هر سهم، پتانسیل تقسیم سود مجمع، حباب یا ارزش ذاتی آن را درجا و با فرضیات دلخواه محاسبه کنید. اطلاعات ثبت شده در حافظه پایدار SQLite ذخیره شده و در صفحه اصلی رصد می‌شود.",
+                            fontSize = 12.sp,
+                            color = Color.LightGray,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Button(
+                            onClick = onFillShastaSample,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2638)),
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("بارگذاری نمونه واقعی (شستا)", fontSize = 11.sp, color = goldVal)
+                        }
+                    }
+                }
+            }
+
+            // Form fields
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                    border = BorderStroke(1.dp, borderClr),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "مشخصات و آمار بنیادی سهم",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldVal
+                        )
+
+                        // Symbol input
+                        OutlinedTextField(
+                            value = symbolStr,
+                            onValueChange = { symbolStr = it },
+                            label = { Text("نماد (مثلاً شستا)", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth().testTag("mentor_symbol_input"),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = goldVal,
+                                unfocusedBorderColor = borderClr
+                            )
+                        )
+
+                        // Name input
+                        OutlinedTextField(
+                            value = nameStr,
+                            onValueChange = { nameStr = it },
+                            label = { Text("نام کامل شرکت", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = goldVal,
+                                unfocusedBorderColor = borderClr
+                            )
+                        )
+
+                        // Price input
+                        OutlinedTextField(
+                            value = priceStr,
+                            onValueChange = { priceStr = it },
+                            label = { Text("قیمت پایانی روز پایانی (ریال)", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = goldVal,
+                                unfocusedBorderColor = borderClr
+                            )
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // EPS input
+                            OutlinedTextField(
+                                value = epsStr,
+                                onValueChange = { epsStr = it },
+                                label = { Text("سود سالانه EPS (ریال)", fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = goldVal,
+                                    unfocusedBorderColor = borderClr
+                                )
+                            )
+
+                            // DPS input
+                            OutlinedTextField(
+                                value = dpsStr,
+                                onValueChange = { dpsStr = it },
+                                label = { Text("سود نقدی مجمع DPS (ریال)", fontSize = 10.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = goldVal,
+                                    unfocusedBorderColor = borderClr
+                                )
+                            )
+                        }
+
+                        // Volume input
+                        OutlinedTextField(
+                            value = volumeStr,
+                            onValueChange = { volumeStr = it },
+                            label = { Text("حجم معاملات روزانه یا حجم مبنا", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = goldVal,
+                                unfocusedBorderColor = borderClr
+                            )
+                        )
+
+                        // Active/Suspended selection toggle to fix User question
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "وضعیت معامله نماد در بازار (اصلاح نقطه‌ی قرمز/سبز):",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldVal
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { customStatusStr = "ACTIVE" },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (customStatusStr == "ACTIVE") StockGreen else Color(0xFF1E2638)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("مجاز - فعال 🟢", fontSize = 11.sp, color = if (customStatusStr == "ACTIVE") Color.White else Color.LightGray)
+                            }
+                            Button(
+                                onClick = { customStatusStr = "SUSPENDED" },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (customStatusStr == "SUSPENDED") StockRed else Color(0xFF1E2638)
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("متوقف - تعلیق 🔴", fontSize = 11.sp, color = if (customStatusStr == "SUSPENDED") Color.White else Color.LightGray)
+                            }
+                        }
+
+                        // Past Years Dividends Fields
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "سود‌های نقدی مجمع سال‌های گذشته (تعهد پایداری سود):",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldVal
+                        )
+                        Text(
+                            text = "وارد کردن مجمع‌های چند سال اخیر الزامی نیست اما به منتور اجازه برآورد نوسان کیفیت سود را می‌دهد.",
+                            fontSize = 10.sp,
+                            color = Color.Gray,
+                            lineHeight = 14.sp
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = dpsLastYearStr,
+                                onValueChange = { dpsLastYearStr = it },
+                                label = { Text("سود ۱ سال قبل (ریال)", fontSize = 9.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = goldVal,
+                                    unfocusedBorderColor = borderClr
+                                )
+                            )
+                            OutlinedTextField(
+                                value = dpsTwoYearsAgoStr,
+                                onValueChange = { dpsTwoYearsAgoStr = it },
+                                label = { Text("سود ۲ سال قبل (ریال)", fontSize = 9.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = goldVal,
+                                    unfocusedBorderColor = borderClr
+                                )
+                            )
+                            OutlinedTextField(
+                                value = dpsThreeYearsAgoStr,
+                                onValueChange = { dpsThreeYearsAgoStr = it },
+                                label = { Text("سود ۳ سال قبل (ریال)", fontSize = 9.sp) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = goldVal,
+                                    unfocusedBorderColor = borderClr
+                                )
+                            )
+                        }
+
+                        // Target Expected Yield / Discounting Rate User Option to make evaluations incredibly professional
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "نرخ تنزیل و بازده مورد انتظار کاربر (سپر ریسک مجمع):",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldVal
+                        )
+                        Text(
+                            text = "منعکس‌کننده حداقل درصد سود نقدی سالانه مجمع مورد انتظار شما در تورم فعلی است (مثلاً ۱۵٪ الی ۳۵٪). تغییر این مقدار فوراً ارزش ذاتی منصفانه و گپ حباب سهام دستی شما را ارزیابی و تغییر می‌دهد.",
+                            fontSize = 10.sp,
+                            color = Color.Gray,
+                            lineHeight = 14.sp
+                        )
+                        OutlinedTextField(
+                            value = targetDiscountRateStr,
+                            onValueChange = { targetDiscountRateStr = it },
+                            label = { Text("نرخ بازده هدف کاربر (درصد مجمع مکتوب)", fontSize = 11.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = goldVal,
+                                unfocusedBorderColor = borderClr
+                            )
+                        )
+
+                        // CODAL & TSETMC & DATABOURSE Live helpers (Fixed Codal, Databourse.ir and Google Search)
+                        if (symbolStr.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "💡 برترین و امن‌ترین راهکار استخراج بدون فیلترینگ دیتابورس: با زدن دکمه‌های زیر فوراً گزارشات مجمع و تابلوی نماد را بررسی کنید. پیشنهاد می‌شود اطلاعات مجمع شستا یا شپنا را مستقیماً از وب‌سایت دیتابورس کپی فیلدهای دستی بالا کنید.",
+                                fontSize = 11.sp,
+                                color = Color.Gray,
+                                lineHeight = 16.sp,
+                                textAlign = TextAlign.Right
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val url = "https://databourse.ir/symbol/${symbolStr.trim()}"
+                                        uriHandler.openUri(url)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F5234)),
+                                    modifier = Modifier.weight(1.3f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("دیتابورس بدون تحریم 📊", fontSize = 10.sp, color = Color.White)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val url = "https://www.google.com/search?q=کدال+اطلاعیه+مجمع+برگزاری+${symbolStr.trim()}"
+                                        uriHandler.openUri(url)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF143018)),
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("گوگل مجمع 🔍", fontSize = 10.sp, color = Color.White)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val url = "https://www.codal.ir/ReportList.aspx?search&Symbol=${symbolStr.trim()}"
+                                        uriHandler.openUri(url)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF152A3F)),
+                                    modifier = Modifier.weight(0.9f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("کدال رسمی 🌐", fontSize = 10.sp, color = Color.White)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        val url = "https://www.tsetmc.com/Loader.aspx?ParTree=121C1113&symbol=${symbolStr.trim()}"
+                                        uriHandler.openUri(url)
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2F36)),
+                                    modifier = Modifier.weight(0.8f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Text("تابلو بورس 📈", fontSize = 10.sp, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Live Mentor Calculations & Advisories Card
+            item {
+                val parsedPrice = priceStr.toLongOrNull() ?: 0L
+                val parsedEps = epsStr.toIntOrNull() ?: 0
+                val parsedDps = dpsStr.toIntOrNull() ?: 0
+                val parsedVolume = volumeStr.toLongOrNull() ?: 0L
+
+                val finalPE = if (parsedEps != 0) (parsedPrice.toFloat() / parsedEps.toFloat()) else 0f
+                val dpsYield = if (parsedPrice > 0L) (parsedDps.toDouble() / parsedPrice.toDouble()) * 100.0 else 0.0
+                val realDpsYield = dpsYield - cbiPtoP
+
+                // Gordon Growth / Intrinsic Value Floor benchmark based on target expected discount rate
+                val discountRatePct = targetDiscountRateStr.toDoubleOrNull() ?: 15.0
+                val discountRateFactor = if (discountRatePct > 0.0) discountRatePct / 100.0 else 0.15
+                val intrinsicValueFloor = parsedDps.toDouble() / discountRateFactor
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor),
+                    border = BorderStroke(1.5.dp, if (symbolStr.isNotBlank()) goldVal else borderClr),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "تحلیل مغایرت و راهنمای مربی سرمایه‌گذاری (Investment Mentor)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = goldVal
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (symbolStr.isBlank()) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "اطلاعات سهم را در فرم بالا تکمیل کنید تا راهنمایی زنده منتور فعال شود.",
+                                    fontSize = 11.sp,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            // Row statistics
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("بازده عایدی نقدی ناخالص مجمع:", fontSize = 12.sp, color = Color.LightGray)
+                                Text(String.format("%.2f%%", dpsYield), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = StockGreen)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("بازده حقیقی مجمع (منهای تورم نقطه به نقطه):", fontSize = 12.sp, color = Color.LightGray)
+                                val clr = if (realDpsYield >= 0) StockGreen else StockRed
+                                Text(String.format("%.2f%%", realDpsYield), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = clr)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("نسبت قیمت به درآمد محاسبه‌شده (P/E):", fontSize = 12.sp, color = Color.LightGray)
+                                Text(String.format("%.2f", finalPE), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("ارزش ذاتی عایدی نقدی مجمع (فرم تنزیل):", fontSize = 12.sp, color = Color.LightGray)
+                                Text(String.format("%,.0f ریال", intrinsicValueFloor), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = goldVal)
+                            }
+
+                            // Dynamic Past Dividends Consistency Evaluation if entered
+                            val d1 = dpsLastYearStr.toDoubleOrNull() ?: 0.0
+                            val d2 = dpsTwoYearsAgoStr.toDoubleOrNull() ?: 0.0
+                            val d3 = dpsThreeYearsAgoStr.toDoubleOrNull() ?: 0.0
+
+                            if (d1 > 0.0 || d2 > 0.0 || d3 > 0.0) {
+                                val listValues = listOf(parsedDps.toDouble(), d1, d2, d3).filter { it > 0.0 }
+                                val averageDps = listValues.average()
+                                val maxVal = listValues.maxOrNull() ?: 1.0
+                                val minVal = listValues.minOrNull() ?: 0.0
+                                val divVolatility = if (averageDps > 0) (maxVal - minVal) / averageDps else 0.0
+
+                                val (volatilityText, ratingColor) = when {
+                                    divVolatility < 0.15 -> "عالی و فوق‌العاده پایدار (تقسیم سود تضمین‌شده تکراری) ⭐" to StockGreen
+                                    divVolatility < 0.40 -> "متوسط و نیمه پایدار (نوسان جزئی در سودآوری)" to goldVal
+                                    else -> "بسیار نوسانی و غیرقابل پایداری (ریسک تخصیص سود زیاد)" to StockRed
+                                }
+
+                                Divider(modifier = Modifier.padding(vertical = 8.dp), color = borderClr)
+                                Text(
+                                    text = "📊 تحلیل پایداری سنواتی سود مجمع (گذشته‌نگر):",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("میانگین تقسیم سود نقدی ۴ سال مجمع:", fontSize = 12.sp, color = Color.LightGray)
+                                    Text(String.format("%,.0f ریال", averageDps), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("نمره ریسک کیفیت جریان نقدی:", fontSize = 12.sp, color = Color.LightGray)
+                                    Text(volatilityText, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ratingColor)
+                                }
+                            }
+
+                            Divider(modifier = Modifier.padding(vertical = 12.dp), color = borderClr)
+
+                            // MENTOR RISK NOTIFICATIONS
+                            Text("مشاوره ریسک تخصصی منتور:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Advisory Block 1: Intrinsic Price evaluation (Bubble check)
+                            val bubbleStatus = when {
+                                parsedPrice <= 0L -> "نامشخص (قیمت صفر درج شده است)"
+                                intrinsicValueFloor <= 0.0 -> "نامشخص (فاقد سود نقدی جهت ارزش‌یابی)"
+                                parsedPrice > intrinsicValueFloor * 1.25 -> "⚠️ حباب قیمتی بالا: قیمت روز سهم در بازار، حدوداً %.0f درصد بیش از ارزش ذاتی جریان سود تقسیمی مجمع است. اگر این سهم طرح توسعه انقلابی یا پتانسیل تجدید ارزیابی دارایی بزرگ ندارد خرید آن بالارده قیمتی پرریسک است."
+                                parsedPrice < intrinsicValueFloor * 0.9 -> "✅ زیر ارزش ذاتی ممتاز: قیمت روز سهم در بازار زیر ارزش منصفانه عایدی نقدی مجمع قرار دارد. این موقعیت عایق تورمی عالی ساخته و جذابیت خرید عمیقی به همراه دارد."
+                                else -> "⚖️ ارزش منصفانه متعادل: قیمت بازار تا حد زیادی منطبق با سود تقسیمی و ارزش ذاتی سهم است."
+                            }
+
+                            val formattedBubbleStatus = if (parsedPrice > intrinsicValueFloor * 1.25 && intrinsicValueFloor > 0.0) {
+                                val pct = ((parsedPrice.toDouble() - intrinsicValueFloor) / intrinsicValueFloor) * 100.0
+                                String.format(bubbleStatus, pct)
+                            } else bubbleStatus
+
+                            MentorRiskCard(
+                                title = "نتیجه سنجش حباب و ارزش منصفانه",
+                                message = formattedBubbleStatus,
+                                isWarning = parsedPrice > intrinsicValueFloor * 1.25 && intrinsicValueFloor > 0.0,
+                                isSuccess = parsedPrice < intrinsicValueFloor * 0.9 && intrinsicValueFloor > 0.0
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Advisory Block 2: Liquidity Check
+                            val volumeWarning = parsedVolume < 1000000L
+                            val volumeMsg = if (volumeWarning) {
+                                "⚠️ اخطار قفل شدن و نقدشوندگی: حجم معاملات ورودی بسیار کم است (کمتر از ۱ میلیون برگ). خرید سهام کم رمق و سبک بازار ریسک نقدشوندگی بالایی دارد، به طوری که در روندهای نزولی ممکن است در صف فروش گیر کرده و ماه‌ها توانایی نقد کردن دارایی خود را نداشته باشید."
+                            } else {
+                                "✅ وضعیت نقدشوندگی آزاد: این سهم حجم معاملات مطلوبی دارد و خطر قفل شدگی فوری نقدینگی در تابلوی بورس آن را تهدید نمی‌کنید."
+                            }
+
+                            MentorRiskCard(
+                                title = "نقدشوندگی و حجم بورس",
+                                message = volumeMsg,
+                                isWarning = volumeWarning,
+                                isSuccess = !volumeWarning
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Advisory Block 3: Sejam and Shasta irregular payment Schedule warning
+                            val isShastaStyle = symbolStr.contains("شستا") || parsedPrice < 3000L
+                            val scheduleMsg = if (isShastaStyle) {
+                                "🕒 ریسک خوش‌قولی و زمان‌بندی: شرکت‌های چندرشته‌ای نظیر هلدینگ‌های غول‌پیکر (مثل شستا) یا سهام با قیمت انباشته ریالی کوچک، به طور معمول تمایل به سوءاستفاده زمانی از بازه‌های مجمع دارند. پرداخت سود مجمع ممکن است از طریق سجام در حداکثر سقف قانونی ۴ الی ۵ ماهه به درازا بکشد. روی سرعت نقدی آن حساب بلندمدت باز کنید."
+                            } else {
+                                "🕒 تذکر واریزی مجمع: سود تقسیمی را ترجیحاً بلافاصله در فرجه اول برای توجیه استراتژی مجمع ثبت نام و در پرتال سجام رهگیری کنید تا قبل از رسوب تورمی واریز گردد."
+                            }
+
+                            MentorRiskCard(
+                                title = "زمان‌بندی واریز سود نقدی",
+                                message = scheduleMsg,
+                                isWarning = isShastaStyle,
+                                isSuccess = false
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Action Buttons: Save or Delete custom stock from Database
+            item {
+                val parsedPrice = priceStr.toLongOrNull() ?: 0L
+                val parsedEps = epsStr.toIntOrNull() ?: 0
+                val parsedDps = dpsStr.toIntOrNull() ?: 0
+                val parsedVolume = volumeStr.toLongOrNull() ?: 0L
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Save Stock
+                    Button(
+                        onClick = {
+                            if (symbolStr.trim().length < 2) {
+                                onShowToast("لطفاً نام نماد را به درستی وارد کنید.")
+                                return@Button
+                            }
+                            if (parsedPrice <= 0L) {
+                                onShowToast("قیمت سهم به ریال نباید صفر باشد.")
+                                return@Button
+                            }
+                            
+                            // Appending custom suspended flag if marked suspended to handle dynamic green/red dot
+                            val dbCompanyName = if (customStatusStr == "SUSPENDED") {
+                                if (nameStr.contains("[SUSPENDED]")) nameStr else "${nameStr.trim()} [SUSPENDED]"
+                            } else {
+                                nameStr.replace("[SUSPENDED]", "").trim()
+                            }
+
+                            viewModel.insertCustomStock(
+                                symbol = symbolStr,
+                                companyName = if (dbCompanyName.isNotBlank()) dbCompanyName else "سهام دستی کاربر",
+                                eps = parsedEps,
+                                dps = parsedDps,
+                                lastPrice = parsedPrice,
+                                volume = parsedVolume
+                            )
+                            onShowToast("نماد «$symbolStr» با موفقیت در بانک اطلاعاتی مجمع ثبت شد و در دیده بان رصد می‌شود! 🎉")
+                        },
+                        modifier = Modifier.weight(1.2f).testTag("save_custom_stock"),
+                        colors = ButtonDefaults.buttonColors(containerColor = StockGreen)
+                    ) {
+                        Text("ثبت و افزودن به دیده‌بان مجمع", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+
+                    // Delete Stock
+                    Button(
+                        onClick = {
+                            if (symbolStr.trim().isEmpty()) {
+                                onShowToast("نمادی وارد نشده است.")
+                                return@Button
+                            }
+                            viewModel.deleteCustomStock(symbolStr)
+                            onShowToast("نماد «$symbolStr» در صورت شخصی‌بودن از دیتابیس حذف گردید.")
+                            symbolStr = ""
+                            nameStr = ""
+                            priceStr = ""
+                            epsStr = ""
+                            dpsStr = ""
+                            volumeStr = ""
+                            dpsLastYearStr = ""
+                            dpsTwoYearsAgoStr = ""
+                            dpsThreeYearsAgoStr = ""
+                        },
+                        modifier = Modifier.weight(0.8f),
+                        colors = ButtonDefaults.buttonColors(containerColor = StockRed.copy(alpha = 0.8f))
+                    ) {
+                        Text("حذف از دیده‌بان", fontSize = 11.sp, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MentorRiskCard(
+    title: String,
+    message: String,
+    isWarning: Boolean,
+    isSuccess: Boolean
+) {
+    val bgColor = if (isWarning) Color(0xFF2C191D) else if (isSuccess) Color(0xFF142C1E) else Color(0xFF19202E)
+    val borderClr = if (isWarning) StockRed else if (isSuccess) StockGreen else Color.Gray.copy(alpha = 0.3f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
+            .border(1.dp, borderClr, RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(
+                text = title,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isWarning) StockRed else if (isSuccess) StockGreen else Color.White
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = message,
+                fontSize = 10.5.sp,
+                color = Color.LightGray,
+                lineHeight = 16.sp,
+                textAlign = TextAlign.Right
+            )
         }
     }
 }

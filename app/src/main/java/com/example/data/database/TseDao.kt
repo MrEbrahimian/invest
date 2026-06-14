@@ -22,6 +22,9 @@ interface TseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStock(stock: StockEntity)
 
+    @Query("DELETE FROM stocks WHERE symbol = :symbol")
+    suspend fun deleteStockBySymbol(symbol: String)
+
     // Portfolio Queries
     @Query("SELECT * FROM portfolio")
     fun getPortfolioFlow(): Flow<List<PortfolioEntity>>
